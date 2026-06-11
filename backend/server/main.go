@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -17,10 +18,10 @@ func main() {
 	}
 	defer db.Close()
 
-	log.Println("Database connected successfully")
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Backend is running"))
+	http.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "ok",
+		})
 	})
 
 	log.Println("Server started on :8080")
