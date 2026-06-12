@@ -43,12 +43,14 @@ func main() {
 	roleService := services.NewRoleService(db)
 	auditService := services.NewAuditService(db)
 	settingsService := services.NewSettingsService(db)
+	designerService := services.NewDesignerService(db)
 
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
 	roleHandler := handlers.NewRoleHandler(roleService)
 	auditHandler := handlers.NewAuditHandler(auditService)
 	settingsHandler := handlers.NewSettingsHandler(settingsService)
+	designerHandler := handlers.NewDesignerHandler(designerService)
 
 	r := gin.Default()
 
@@ -79,7 +81,7 @@ func main() {
 		users.GET("/:id", userHandler.GetUser)
 		users.PUT("/:id", userHandler.UpdateUser)
 		users.DELETE("/:id", userHandler.DeleteUser)
-		users.PATCH("/:id/disable", userHandler.DisableUser)
+		users.PATCH("/:id/disable", userHandler.ToggleUserStatus)
 		users.POST("/:id/roles", userHandler.AssignRole)
 		users.DELETE("/:id/roles", userHandler.RemoveRole)
 	}
@@ -114,6 +116,45 @@ func main() {
 		settings.PUT("/:id", settingsHandler.UpdateSetting)
 		settings.PUT("/key/:key", settingsHandler.UpdateSettingByKey)
 		settings.DELETE("/:id", settingsHandler.DeleteSetting)
+	}
+
+	// Designer Studio Routes - Only accessible by role_id = 4
+	designer := r.Group("/api/designer")
+	designer.Use(authMiddleware.AuthRequired())
+	designer.Use(middleware.RequireDesignerRole(db))
+	{
+		// Module Routes
+		designer.POST("/modules", designerHandler.CreateModule)
+		designer.GET("/modules", designerHandler.GetAllModules)
+		designer.GET("/modules/:moduleKey", designerHandler.GetModule)
+		designer.PUT("/modules/:moduleKey", designerHandler.UpdateModule)
+		designer.DELETE("/modules/:moduleKey", designerHandler.DeleteModule)
+		designer.GET("/modules/:moduleKey/with-fields", designerHandler.GetModuleWithFields)
+
+		// Field Routes
+		designer.POST("/fields", designerHandler.CreateField)
+		designer.GET("/fields/:fieldId", designerHandler.GetField)
+		designer.GET("/modules/:moduleKey/fields", designerHandler.GetFieldsByModule)
+		designer.PUT("/fields/:fieldId", designerHandler.UpdateField)
+		designer.DELETE("/fields/:fieldId", designerHandler.DeleteField)
+		designer.PUT("/fields/:fieldId/order", designerHandler.UpdateFieldOrder)
+
+		// Record Routes
+		designer.POST("/records", designerHandler.CreateRecord)
+		designer.GET("/records/:recordId", designerHandler.GetRecord)
+		designer.GET("/modules/:moduleKey/records", designerHandler.GetRecordsByModule)
+		designer.PUT("/records/:recordId", designerHandler.UpdateRecord)
+		designer.DELETE("/records/:recordId", designerHandler.DeleteRecord)
+
+		// Form Layout Routes
+		designer.GET("/modules/:moduleKey/layout", designerHandler.GetFormLayout)
+
+		// Module Column Routes
+		designer.POST("/module-columns", designerHandler.CreateModuleColumn)
+		designer.GET("/module-columns/:columnId", designerHandler.GetModuleColumn)
+		designer.GET("/modules/:moduleKey/columns", designerHandler.GetModuleColumnsByModule)
+		designer.PUT("/module-columns/:columnId", designerHandler.UpdateModuleColumn)
+		designer.DELETE("/module-columns/:columnId", designerHandler.DeleteModuleColumn)
 	}
 
 	port := os.Getenv("PORT")

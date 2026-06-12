@@ -13,13 +13,13 @@ import (
 )
 
 type AuthService struct {
-	db          *sqlx.DB
+	db             *sqlx.DB
 	authMiddleware *middleware.AuthMiddleware
 }
 
 func NewAuthService(db *sqlx.DB, jwtSecret string) *AuthService {
 	return &AuthService{
-		db:          db,
+		db:             db,
 		authMiddleware: middleware.NewAuthMiddleware(jwtSecret),
 	}
 }
@@ -116,7 +116,7 @@ func (s *AuthService) Refresh(refreshToken string) (*models.RefreshResponse, err
 		return nil, err
 	}
 
-	_, err = s.db.Exec("UPDATE sessions SET refresh_token = $1, expires_at = $2 WHERE session_id = $3", 
+	_, err = s.db.Exec("UPDATE sessions SET refresh_token = $1, expires_at = $2 WHERE session_id = $3",
 		newRefreshToken, time.Now().Add(7*24*time.Hour), session.SessionID)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func (s *AuthService) ChangePassword(userID int64, req models.ChangePasswordRequ
 		return err
 	}
 
-	_, err = s.db.Exec("UPDATE users SET password_hash = $1, updated_at = $2 WHERE user_id = $3", 
+	_, err = s.db.Exec("UPDATE users SET password_hash = $1, updated_at = $2 WHERE user_id = $3",
 		newPasswordHash, time.Now(), userID)
 	return err
 }
@@ -211,7 +211,7 @@ func (s *AuthService) ResetPassword(username string) (string, error) {
 		return "", err
 	}
 
-	_, err = s.db.Exec("UPDATE users SET password_hash = $1, updated_at = $2 WHERE user_id = $3", 
+	_, err = s.db.Exec("UPDATE users SET password_hash = $1, updated_at = $2 WHERE user_id = $3",
 		hashedPassword, time.Now(), user.UserID)
 	if err != nil {
 		return "", err

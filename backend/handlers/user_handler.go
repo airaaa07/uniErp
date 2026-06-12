@@ -1,7 +1,6 @@
 package handlers
 
 import (
-
 	"backend/models"
 	"backend/services"
 	"database/sql"
@@ -91,20 +90,20 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
-func (h *UserHandler) DisableUser(c *gin.Context) {
+func (h *UserHandler) ToggleUserStatus(c *gin.Context) {
 	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
-	err = h.userService.DisableUser(userID)
+	err = h.userService.ToggleUserStatus(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "User disabled successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "User status toggled successfully"})
 }
 
 func (h *UserHandler) DeleteUser(c *gin.Context) {

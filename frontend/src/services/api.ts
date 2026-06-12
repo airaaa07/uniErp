@@ -1,12 +1,27 @@
 import axios from 'axios';
-import type { 
-  User, 
-  Role, 
-  AuditLog, 
-  AppSetting, 
-  LoginRequest, 
+import type {
+  User,
+  Role,
+  AuditLog,
+  AppSetting,
+  LoginRequest,
   LoginResponse,
-  ChangePasswordRequest 
+  ChangePasswordRequest,
+  Module,
+  ModuleCreate,
+  ModuleUpdate,
+  ModuleClone,
+  Field,
+  FieldCreate,
+  FieldUpdate,
+  DesignerRecord as Record,
+  RecordCreate,
+  RecordUpdate,
+  ModuleWithFields,
+  FormLayout,
+  ModuleColumn,
+  ModuleColumnCreate,
+  ModuleColumnUpdate
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.14:8080/api';
@@ -102,6 +117,43 @@ export const settingsAPI = {
   update: (id: number, data: any) => api.put<AppSetting>(`/settings/${id}`, data),
   updateByKey: (key: string, data: any) => api.put<AppSetting>(`/settings/key/${key}`, data),
   delete: (id: number) => api.delete(`/settings/${id}`),
+};
+
+// ==================== DESIGNER STUDIO API ====================
+
+export const designerAPI = {
+  // Module Operations
+  createModule: (data: ModuleCreate) => api.post<Module>('/designer/modules', data),
+  getAllModules: () => api.get<Module[]>('/designer/modules'),
+  getModule: (moduleKey: string) => api.get<Module>(`/designer/modules/${moduleKey}`),
+  updateModule: (moduleKey: string, data: ModuleUpdate) => api.put<Module>(`/designer/modules/${moduleKey}`, data),
+  deleteModule: (moduleKey: string) => api.delete(`/designer/modules/${moduleKey}`),
+  getModuleWithFields: (moduleKey: string) => api.get<ModuleWithFields>(`/designer/modules/${moduleKey}/with-fields`),
+
+  // Field Operations
+  createField: (data: FieldCreate) => api.post<Field>('/designer/fields', data),
+  getField: (fieldId: number) => api.get<Field>(`/designer/fields/${fieldId}`),
+  getFieldsByModule: (moduleKey: string) => api.get<Field[]>(`/designer/modules/${moduleKey}/fields`),
+  updateField: (fieldId: number, data: FieldUpdate) => api.put<Field>(`/designer/fields/${fieldId}`, data),
+  deleteField: (fieldId: number) => api.delete(`/designer/fields/${fieldId}`),
+  updateFieldOrder: (fieldId: number, sortOrder: number) => api.put(`/designer/fields/${fieldId}/order`, { sort_order: sortOrder }),
+
+  // Record Operations
+  createRecord: (data: RecordCreate) => api.post<Record>('/designer/records', data),
+  getRecord: (recordId: string) => api.get<Record>(`/designer/records/${recordId}`),
+  getRecordsByModule: (moduleKey: string, search?: string) => api.get<Record[]>(`/designer/modules/${moduleKey}/records${search ? `?search=${search}` : ''}`),
+  updateRecord: (recordId: string, data: RecordUpdate) => api.put<Record>(`/designer/records/${recordId}`, data),
+  deleteRecord: (recordId: string) => api.delete(`/designer/records/${recordId}`),
+
+  // Form Layout Operations
+  getFormLayout: (moduleKey: string) => api.get<FormLayout>(`/designer/modules/${moduleKey}/layout`),
+
+  // Module Column Operations
+  createModuleColumn: (data: ModuleColumnCreate) => api.post<ModuleColumn>('/designer/module-columns', data),
+  getModuleColumn: (columnId: number) => api.get<ModuleColumn>(`/designer/module-columns/${columnId}`),
+  getModuleColumnsByModule: (moduleKey: string) => api.get<ModuleColumn[]>(`/designer/modules/${moduleKey}/columns`),
+  updateModuleColumn: (columnId: number, data: ModuleColumnUpdate) => api.put<ModuleColumn>(`/designer/module-columns/${columnId}`, data),
+  deleteModuleColumn: (columnId: number) => api.delete(`/designer/module-columns/${columnId}`),
 };
 
 export default api;

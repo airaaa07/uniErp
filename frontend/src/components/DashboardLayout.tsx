@@ -26,17 +26,32 @@ import {
   Settings as SettingsIcon,
   Logout as LogoutIcon,
   AccountCircle,
+  ViewModule as ModuleIcon,
+  Tune as FieldIcon,
+  ViewColumn as ColumnIcon,
+  ViewQuilt as LayoutIcon,
+  Visibility as PreviewIcon,
+  TableChart as RecordIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 
 const DRAWER_WIDTH = 240;
 
-const menuItems = [
+const adminMenuItems = [
   { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
   { text: 'Users', icon: <PeopleIcon />, path: '/dashboard/users' },
   { text: 'Roles', icon: <RoleIcon />, path: '/dashboard/roles' },
   { text: 'Audit Logs', icon: <AuditIcon />, path: '/dashboard/audit' },
   { text: 'Settings', icon: <SettingsIcon />, path: '/dashboard/settings' },
+];
+
+const designerMenuItems = [
+  { text: 'Module Designer', icon: <ModuleIcon />, path: '/dashboard/designer/modules' },
+  { text: 'Column Designer', icon: <ColumnIcon />, path: '/dashboard/designer/columns' },
+  { text: 'Field Designer', icon: <FieldIcon />, path: '/dashboard/designer/fields' },
+  { text: 'Form Layout', icon: <LayoutIcon />, path: '/dashboard/designer/layout' },
+  { text: 'Form Preview', icon: <PreviewIcon />, path: '/dashboard/designer/preview' },
+  { text: 'Record Viewer', icon: <RecordIcon />, path: '/dashboard/designer/records' },
 ];
 
 const DashboardLayout: React.FC = () => {
@@ -45,6 +60,15 @@ const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Determine menu items based on user role
+  const isDesigner = user?.roles?.some((role: any) => {
+    if (typeof role === 'string') {
+      return role.toLowerCase() === 'designer';
+    }
+    return role.role_name?.toLowerCase() === 'designer';
+  }) || false;
+  const menuItems = isDesigner ? designerMenuItems : adminMenuItems;
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -67,7 +91,7 @@ const DashboardLayout: React.FC = () => {
     <div>
       <Toolbar>
         <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-          University ERP
+          {isDesigner ? 'Designer Studio' : 'University ERP'}
         </Typography>
       </Toolbar>
       <Divider />

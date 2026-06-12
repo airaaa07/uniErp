@@ -20,13 +20,16 @@ type UserCreate struct {
 	Password  string `json:"password" binding:"required,min=6"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+	RoleID    int64  `json:"role_id"`
 }
 
 type UserUpdate struct {
+	Username  *string `json:"username"`
 	Email     *string `json:"email"`
 	FirstName *string `json:"first_name"`
 	LastName  *string `json:"last_name"`
 	IsActive  *bool   `json:"is_active"`
+	RoleID    *int64  `json:"role_id"` // pointer to int64
 }
 
 type UserResponse struct {

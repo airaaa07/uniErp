@@ -54,7 +54,7 @@ const Login: React.FC = () => {
           </Typography>
 
           <Alert severity="info" sx={{ mb: 2 }}>
-            Default Admin: username <strong>admin</strong>, password <strong>admin123</strong>
+            Default Username: <strong>admin</strong><br />Password: <strong>admin123</strong>
           </Alert>
 
           {error && (

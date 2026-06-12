@@ -3,6 +3,8 @@ package services
 import (
 	"backend/models"
 	"backend/utils"
+	"fmt"
+	"strconv"
 
 	"time"
 
@@ -25,12 +27,32 @@ func (s *UserService) CreateUser(req models.UserCreate) (*models.UserResponse, e
 
 	var userID int64
 	err = s.db.QueryRow(
-		`INSERT INTO users (username, email, password_hash, first_name, last_name) 
-		 VALUES ($1, $2, $3, $4, $5) RETURNING user_id`,
-		req.Username, req.Email, hashedPassword, req.FirstName, req.LastName,
+		`INSERT INTO users (
+			username,
+			email,
+			password_hash,
+			first_name,
+			last_name
+		)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING user_id`,
+		req.Username,
+		req.Email,
+		hashedPassword,
+		req.FirstName,
+		req.LastName,
 	).Scan(&userID)
+
 	if err != nil {
 		return nil, err
+	}
+
+	// Assign selected role
+	if req.RoleID > 0 {
+		err = s.AssignRole(userID, req.RoleID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return s.GetUserByID(userID)
@@ -67,7 +89,7 @@ func (s *UserService) GetAllUsers(search string) ([]models.UserResponse, error) 
 
 	if search != "" {
 		searchPattern := "%" + search + "%"
-		err = s.db.Select(&users, 
+		err = s.db.Select(&users,
 			"SELECT * FROM users WHERE username ILIKE $1 OR email ILIKE $1 OR first_name ILIKE $1 OR last_name ILIKE $1 ORDER BY created_at DESC",
 			searchPattern)
 	} else {
@@ -106,49 +128,114 @@ func (s *UserService) UpdateUser(userID int64, req models.UserUpdate) (*models.U
 	args := []interface{}{time.Now()}
 	argCount := 2
 
+	if req.Username != nil {
+		query += ", username = $" + strconv.Itoa(argCount)
+		args = append(args, *req.Username)
+		argCount++
+	}
+
 	if req.Email != nil {
-		query += ", email = $" + string(rune('0'+argCount))
+		query += ", email = $" + strconv.Itoa(argCount)
 		args = append(args, *req.Email)
 		argCount++
 	}
 
 	if req.FirstName != nil {
-		query += ", first_name = $" + string(rune('0'+argCount))
+		query += ", first_name = $" + strconv.Itoa(argCount)
 		args = append(args, *req.FirstName)
 		argCount++
 	}
 
 	if req.LastName != nil {
-		query += ", last_name = $" + string(rune('0'+argCount))
+		query += ", last_name = $" + strconv.Itoa(argCount)
 		args = append(args, *req.LastName)
 		argCount++
 	}
 
 	if req.IsActive != nil {
-		query += ", is_active = $" + string(rune('0'+argCount))
+		query += ", is_active = $" + strconv.Itoa(argCount)
 		args = append(args, *req.IsActive)
 		argCount++
 	}
 
-	query += " WHERE user_id = $" + string(rune('0'+argCount))
+	query += " WHERE user_id = $" + strconv.Itoa(argCount)
 	args = append(args, userID)
 
-	_, err := s.db.Exec(query, args...)
+	// 1️⃣ Update user profile fields
+	result, err := s.db.Exec(query, args...)
 	if err != nil {
 		return nil, err
 	}
 
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return nil, fmt.Errorf("no user updated")
+	}
+
+	// 2️⃣ Update role in mapping table (user_roles)
+	if req.RoleID != nil {
+		// update role
+		_, err := s.db.Exec("DELETE FROM user_roles WHERE user_id = $1", userID)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = s.db.Exec("INSERT INTO user_roles(user_id, role_id) VALUES($1, $2)", userID, *req.RoleID)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return s.GetUserByID(userID)
 }
 
-func (s *UserService) DisableUser(userID int64) error {
-	_, err := s.db.Exec("UPDATE users SET is_active = false, updated_at = $1 WHERE user_id = $2", time.Now(), userID)
+func (s *UserService) ToggleUserStatus(userID int64) error {
+	_, err := s.db.Exec(`
+        UPDATE users
+        SET is_active = NOT is_active,
+            updated_at = $1
+        WHERE user_id = $2
+    `, time.Now(), userID)
 	return err
 }
 
 func (s *UserService) DeleteUser(userID int64) error {
-	_, err := s.db.Exec("DELETE FROM users WHERE user_id = $1", userID)
-	return err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// 1️⃣ Remove user_roles
+	_, err = tx.Exec("DELETE FROM user_roles WHERE user_id = $1", userID)
+	if err != nil {
+		return err
+	}
+
+	// 2️⃣ Remove sessions
+	_, err = tx.Exec("DELETE FROM sessions WHERE user_id = $1", userID)
+	if err != nil {
+		return err
+	}
+
+	// 3️⃣ Optional: remove audit_logs
+	_, err = tx.Exec("DELETE FROM audit_logs WHERE user_id = $1", userID)
+	if err != nil {
+		return err
+	}
+
+	// 4️⃣ Delete user
+	_, err = tx.Exec("DELETE FROM users WHERE user_id = $1", userID)
+	if err != nil {
+		return err
+	}
+
+	// 5️⃣ Commit transaction
+	return tx.Commit()
 }
 
 func (s *UserService) AssignRole(userID int64, roleID int64) error {

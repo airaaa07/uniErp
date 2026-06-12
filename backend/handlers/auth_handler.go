@@ -18,7 +18,6 @@ func NewAuthHandler(authService *services.AuthService) *AuthHandler {
 		authService: authService,
 	}
 }
-
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req models.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -29,6 +28,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	ipAddress := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
 
+	// Pass the full request to the service
 	response, err := h.authService.Login(req, ipAddress, userAgent)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})

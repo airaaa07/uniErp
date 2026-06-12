@@ -37,7 +37,7 @@ func SeedData(db *sqlx.DB) error {
 		err := db.QueryRow(
 			`INSERT INTO permissions (permission_name, description) 
 			 VALUES ($1, $2) 
-			 ON CONFLICT (permission_name) DO NOTHING 
+			 ON CONFLICT (permission_name) DO UPDATE SET description = EXCLUDED.description
 			 RETURNING permission_id`,
 			perm.name, perm.description,
 		).Scan(&id)
@@ -49,7 +49,8 @@ func SeedData(db *sqlx.DB) error {
 				perm.name,
 			).Scan(&id)
 			if err != nil {
-				return err
+				log.Printf("Warning: Could not get permission ID for %s: %v", perm.name, err)
+				continue
 			}
 		}
 		permissionIDs[perm.name] = id
@@ -72,7 +73,7 @@ func SeedData(db *sqlx.DB) error {
 		err := db.QueryRow(
 			`INSERT INTO roles (role_name) 
 			 VALUES ($1) 
-			 ON CONFLICT (role_name) DO NOTHING 
+			 ON CONFLICT (role_name) DO UPDATE SET role_name = EXCLUDED.role_name
 			 RETURNING role_id`,
 			role.name,
 		).Scan(&id)
@@ -84,7 +85,8 @@ func SeedData(db *sqlx.DB) error {
 				role.name,
 			).Scan(&id)
 			if err != nil {
-				return err
+				log.Printf("Warning: Could not get role ID for %s: %v", role.name, err)
+				continue
 			}
 		}
 		roleIDs[role.name] = id
@@ -120,13 +122,23 @@ func SeedData(db *sqlx.DB) error {
 	}
 
 	for roleName, perms := range rolePermissions {
-		roleID := roleIDs[roleName]
+		roleID, ok := roleIDs[roleName]
+		if !ok {
+			log.Printf("Warning: Role ID not found for %s", roleName)
+			continue
+		}
+		
 		for _, permName := range perms {
-			permID := permissionIDs[permName]
+			permID, ok := permissionIDs[permName]
+			if !ok {
+				log.Printf("Warning: Permission ID not found for %s", permName)
+				continue
+			}
+			
 			_, err := db.Exec(
 				`INSERT INTO role_permissions (role_id, permission_id) 
 				 VALUES ($1, $2) 
-				 ON CONFLICT DO NOTHING`,
+				 ON CONFLICT (role_id, permission_id) DO NOTHING`,
 				roleID, permID,
 			)
 			if err != nil {
@@ -145,7 +157,7 @@ func SeedData(db *sqlx.DB) error {
 	err = db.QueryRow(
 		`INSERT INTO users (username, email, password_hash, first_name, last_name) 
 		 VALUES ($1, $2, $3, $4, $5) 
-		 ON CONFLICT (username) DO NOTHING 
+		 ON CONFLICT (username) DO UPDATE SET username = EXCLUDED.username
 		 RETURNING user_id`,
 		"admin", "admin@university.edu", passwordHash, "System", "Administrator",
 	).Scan(&adminUserID)
@@ -157,19 +169,27 @@ func SeedData(db *sqlx.DB) error {
 			"admin",
 		).Scan(&adminUserID)
 		if err != nil {
-			return err
+			log.Printf("Warning: Could not get admin user ID: %v", err)
+			adminUserID = 0
 		}
 	}
 
-	// Assign Super Admin role to admin user
-	_, err = db.Exec(
-		`INSERT INTO user_roles (user_id, role_id) 
-		 VALUES ($1, $2) 
-		 ON CONFLICT DO NOTHING`,
-		adminUserID, roleIDs["Super Admin"],
-	)
-	if err != nil {
-		return err
+	// Assign Super Admin role to admin user (only if user was created or found)
+	if adminUserID > 0 {
+		superAdminRoleID, ok := roleIDs["Super Admin"]
+		if !ok {
+			log.Printf("Warning: Super Admin role ID not found")
+		} else {
+			_, err = db.Exec(
+				`INSERT INTO user_roles (user_id, role_id) 
+				 VALUES ($1, $2) 
+				 ON CONFLICT (user_id, role_id) DO NOTHING`,
+				adminUserID, superAdminRoleID,
+			)
+			if err != nil {
+				log.Printf("Error assigning Super Admin role to admin user: %v", err)
+			}
+		}
 	}
 
 	log.Println("Database seeded successfully!")
