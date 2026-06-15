@@ -11,21 +11,20 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./backend/database/migrations:/docker-entrypoint-initdb.d
 
   backend:
     build: ./backend
     ports:
       - "8080:8080"
     environment:
-      - DB_HOST=db
-      - DB_PORT=5432
+      - DB_HOST=${DB_HOST:-db}
+      - DB_PORT=${DB_PORT:-5432}
       - DB_USER=${DB_USER:-postgres}
       - DB_PASSWORD=${DB_PASSWORD:-root}
       - DB_NAME=${DB_NAME:-universe2}
       - DB_SSLMODE=disable
-      - JWT_SECRET=demoSecretKey
-      - SEED_DB=true
+      - JWT_SECRET=${JWT_SECRET:-demoSecretKey}
+      - SEED_DB=${SEED_DB:-false}
     depends_on:
       - db
     restart: on-failure
@@ -35,7 +34,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - BACKEND_URL=http://backend:8080
+      - VITE_API_BACKEND_URL=http://backend:8080
       - VITE_API_BASE_URL=/api
     depends_on:
       - backend
