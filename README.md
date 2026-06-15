@@ -24,14 +24,14 @@ The frontend and backend use flexible configurations via environment variables t
 ### Backend Environment Configuration (`backend/.env`)
 Create or edit `backend/.env` to configure your PostgreSQL instance:
 ```env
-DB_HOST=192.168.1.201       # Database server IP (use 127.0.0.1 for local docker DB)
+DB_HOST=192.168.XX.XX       # Database server IP (use 127.0.0.1 for local docker DB)
 DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=root
+DB_USER=user
+DB_PASSWORD=password
 DB_NAME=universe            # Target database name
 DB_SSLMODE=disable
 
-JWT_SECRET=demoSecretKey
+JWT_SECRET=JWTSecretKey
 SEED_DB=false               # Set to true on first run to auto-create default admin credentials
 ```
 
