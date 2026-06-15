@@ -6,9 +6,11 @@ import (
 
 	"backend/config"
 	"backend/database"
-	"backend/handlers"
+	"backend/handlers/designer"
+	"backend/handlers/erp"
 	"backend/middleware"
-	"backend/services"
+	designerservices "backend/services/designer"
+	erpservices "backend/services/erp"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,21 +38,30 @@ func main() {
 	}
 
 	authMiddleware := middleware.NewAuthMiddleware(jwtSecret)
-	// rbacMiddleware := middleware.NewRBACMiddleware()
 
-	authService := services.NewAuthService(db, jwtSecret)
-	userService := services.NewUserService(db)
-	roleService := services.NewRoleService(db)
-	auditService := services.NewAuditService(db)
-	settingsService := services.NewSettingsService(db)
-	designerService := services.NewDesignerService(db)
+	// ERP Services
+	erpAuthService := erpservices.NewAuthService(db, jwtSecret)
+	userService := erpservices.NewUserService(db)
+	roleService := erpservices.NewRoleService(db)
+	auditService := erpservices.NewAuditService(db)
+	settingsService := erpservices.NewSettingsService(db)
+	recordService := erpservices.NewRecordService(db)
 
-	authHandler := handlers.NewAuthHandler(authService)
-	userHandler := handlers.NewUserHandler(userService)
-	roleHandler := handlers.NewRoleHandler(roleService)
-	auditHandler := handlers.NewAuditHandler(auditService)
-	settingsHandler := handlers.NewSettingsHandler(settingsService)
-	designerHandler := handlers.NewDesignerHandler(designerService)
+	// Designer Services
+	designerAuthService := designerservices.NewAuthService(db, jwtSecret)
+	designerService := designerservices.NewDesignerService(db)
+
+	// ERP Handlers
+	erpAuthHandler := erp.NewAuthHandler(erpAuthService)
+	userHandler := erp.NewUserHandler(userService)
+	roleHandler := erp.NewRoleHandler(roleService)
+	auditHandler := erp.NewAuditHandler(auditService)
+	settingsHandler := erp.NewSettingsHandler(settingsService)
+	erpRecordHandler := erp.NewRecordHandler(recordService)
+
+	// Designer Handlers
+	designerAuthHandler := designer.NewAuthHandler(designerAuthService)
+	designerHandler := designer.NewDesignerHandler(designerService)
 
 	r := gin.Default()
 
@@ -58,107 +69,117 @@ func main() {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	auth := r.Group("/api/auth")
+	// ==================== ERP AUTH ROUTES ====================
+	erpAuth := r.Group("/api/erp/auth")
 	{
-		auth.POST("/login", authHandler.Login)
-		auth.POST("/logout", authHandler.Logout)
-		auth.POST("/refresh", authHandler.Refresh)
-		auth.POST("/register", userHandler.CreateUser)
+		erpAuth.POST("/login", erpAuthHandler.Login)
+		erpAuth.POST("/logout", erpAuthHandler.Logout)
+		erpAuth.POST("/refresh", erpAuthHandler.Refresh)
+		erpAuth.POST("/register", userHandler.CreateUser)
 	}
 
-	protected := r.Group("/api/auth")
-	protected.Use(authMiddleware.AuthRequired())
+	// ==================== DESIGNER AUTH ROUTES ====================
+	designerAuth := r.Group("/api/designer/auth")
 	{
-		protected.GET("/me", authHandler.GetCurrentUser)
-		protected.POST("/change-password", authHandler.ChangePassword)
+		designerAuth.POST("/login", designerAuthHandler.Login)
+		designerAuth.POST("/logout", designerAuthHandler.Logout)
+		designerAuth.POST("/refresh", designerAuthHandler.Refresh)
 	}
 
-	users := r.Group("/api/users")
-	users.Use(authMiddleware.AuthRequired())
+	// ==================== ERP PROTECTED ROUTES ====================
+	erpGroup := r.Group("/api/erp")
+	erpGroup.Use(authMiddleware.AuthRequired())
 	{
-		users.POST("", userHandler.CreateUser)
-		users.GET("", userHandler.GetAllUsers)
-		users.GET("/:id", userHandler.GetUser)
-		users.PUT("/:id", userHandler.UpdateUser)
-		users.DELETE("/:id", userHandler.DeleteUser)
-		users.PATCH("/:id/disable", userHandler.ToggleUserStatus)
-		users.POST("/:id/roles", userHandler.AssignRole)
-		users.DELETE("/:id/roles", userHandler.RemoveRole)
+		erpGroup.GET("/auth/me", erpAuthHandler.GetCurrentUser)
+		erpGroup.POST("/auth/change-password", erpAuthHandler.ChangePassword)
+
+		// Record Routes (Open to ERP authenticated users)
+		erpGroup.POST("/records", erpRecordHandler.CreateRecord)
+		erpGroup.GET("/records/:recordId", erpRecordHandler.GetRecord)
+		erpGroup.GET("/modules/:moduleKey/records", erpRecordHandler.GetRecordsByModule)
+		erpGroup.PUT("/records/:recordId", erpRecordHandler.UpdateRecord)
+		erpGroup.DELETE("/records/:recordId", erpRecordHandler.DeleteRecord)
+
+		// Module structures (Read-only for form rendering)
+		erpGroup.GET("/modules/:moduleKey/layout", designerHandler.GetFormLayout)
+		erpGroup.GET("/modules/:moduleKey/with-fields", designerHandler.GetModuleWithFields)
+		erpGroup.GET("/modules/:moduleKey/fields", designerHandler.GetFieldsByModule)
 	}
 
-	roles := r.Group("/api/roles")
-	roles.Use(authMiddleware.AuthRequired())
+	// ==================== DESIGNER PROTECTED ROUTES ====================
+	designerGroup := r.Group("/api/designer")
+	designerGroup.Use(authMiddleware.AuthRequired())
+	designerGroup.Use(middleware.RequireDesignerRole(db))
 	{
-		roles.POST("", roleHandler.CreateRole)
-		roles.GET("", roleHandler.GetAllRoles)
-		roles.GET("/:id", roleHandler.GetRole)
-		roles.PUT("/:id", roleHandler.UpdateRole)
-		roles.DELETE("/:id", roleHandler.DeleteRole)
-		roles.POST("/:id/permissions", roleHandler.AssignPermission)
-		roles.DELETE("/:id/permissions", roleHandler.RemovePermission)
-	}
+		designerGroup.GET("/auth/me", designerAuthHandler.GetCurrentUser)
+		designerGroup.POST("/auth/change-password", designerAuthHandler.ChangePassword)
 
-	audit := r.Group("/api/audit")
-	audit.Use(authMiddleware.AuthRequired())
-	{
-		audit.GET("", auditHandler.GetAllLogs)
-		audit.GET("/entity", auditHandler.GetLogsByEntity)
-		audit.GET("/my-logs", auditHandler.GetLogsByUser)
-	}
+		// Users
+		designerGroup.POST("/users", userHandler.CreateUser)
+		designerGroup.GET("/users", userHandler.GetAllUsers)
+		designerGroup.GET("/users/:id", userHandler.GetUser)
+		designerGroup.PUT("/users/:id", userHandler.UpdateUser)
+		designerGroup.DELETE("/users/:id", userHandler.DeleteUser)
+		designerGroup.PATCH("/users/:id/disable", userHandler.ToggleUserStatus)
+		designerGroup.POST("/users/:id/roles", userHandler.AssignRole)
+		designerGroup.DELETE("/users/:id/roles", userHandler.RemoveRole)
 
-	settings := r.Group("/api/settings")
-	settings.Use(authMiddleware.AuthRequired())
-	{
-		settings.POST("", settingsHandler.CreateSetting)
-		settings.GET("", settingsHandler.GetAllSettings)
-		settings.GET("/:id", settingsHandler.GetSetting)
-		settings.GET("/key/:key", settingsHandler.GetSettingByKey)
-		settings.PUT("/:id", settingsHandler.UpdateSetting)
-		settings.PUT("/key/:key", settingsHandler.UpdateSettingByKey)
-		settings.DELETE("/:id", settingsHandler.DeleteSetting)
-	}
+		// Records
+		designerGroup.POST("/records", erpRecordHandler.CreateRecord)
+		designerGroup.GET("/records/:recordId", erpRecordHandler.GetRecord)
+		designerGroup.GET("/modules/:moduleKey/records", erpRecordHandler.GetRecordsByModule)
+		designerGroup.PUT("/records/:recordId", erpRecordHandler.UpdateRecord)
+		designerGroup.DELETE("/records/:recordId", erpRecordHandler.DeleteRecord)
 
-	// Designer Studio Routes - Only accessible by role_id = 4
-	designer := r.Group("/api/designer")
-	designer.Use(authMiddleware.AuthRequired())
-	designer.Use(middleware.RequireDesignerRole(db))
-	{
+		// Roles
+		designerGroup.POST("/roles", roleHandler.CreateRole)
+		designerGroup.GET("/roles", roleHandler.GetAllRoles)
+		designerGroup.GET("/roles/:id", roleHandler.GetRole)
+		designerGroup.PUT("/roles/:id", roleHandler.UpdateRole)
+		designerGroup.DELETE("/roles/:id", roleHandler.DeleteRole)
+		designerGroup.POST("/roles/:id/permissions", roleHandler.AssignPermission)
+		designerGroup.DELETE("/roles/:id/permissions", roleHandler.RemovePermission)
+
+		// Audit Logs
+		designerGroup.GET("/audit", auditHandler.GetAllLogs)
+		designerGroup.GET("/audit/entity", auditHandler.GetLogsByEntity)
+		designerGroup.GET("/audit/my-logs", auditHandler.GetLogsByUser)
+
+		// Settings
+		designerGroup.POST("/settings", settingsHandler.CreateSetting)
+		designerGroup.GET("/settings", settingsHandler.GetAllSettings)
+		designerGroup.GET("/settings/:id", settingsHandler.GetSetting)
+		designerGroup.GET("/settings/key/:key", settingsHandler.GetSettingByKey)
+		designerGroup.PUT("/settings/:id", settingsHandler.UpdateSetting)
+		designerGroup.PUT("/settings/key/:key", settingsHandler.UpdateSettingByKey)
+		designerGroup.DELETE("/settings/:id", settingsHandler.DeleteSetting)
+
 		// Module Routes
-		designer.POST("/modules", designerHandler.CreateModule)
-		designer.GET("/modules", designerHandler.GetAllModules)
-		designer.GET("/modules/:moduleKey", designerHandler.GetModule)
-		designer.PUT("/modules/:moduleKey", designerHandler.UpdateModule)
-		designer.DELETE("/modules/:moduleKey", designerHandler.DeleteModule)
-		designer.GET("/modules/:moduleKey/with-fields", designerHandler.GetModuleWithFields)
+		designerGroup.POST("/modules", designerHandler.CreateModule)
+		designerGroup.GET("/modules", designerHandler.GetAllModules)
+		designerGroup.GET("/modules/:moduleKey", designerHandler.GetModule)
+		designerGroup.PUT("/modules/:moduleKey", designerHandler.UpdateModule)
+		designerGroup.DELETE("/modules/:moduleKey", designerHandler.DeleteModule)
+		designerGroup.GET("/modules/:moduleKey/with-fields", designerHandler.GetModuleWithFields)
 
 		// Field Routes
-		designer.POST("/fields", designerHandler.CreateField)
-		designer.GET("/fields/:fieldId", designerHandler.GetField)
-		designer.GET("/modules/:moduleKey/fields", designerHandler.GetFieldsByModule)
-		designer.PUT("/fields/:fieldId", designerHandler.UpdateField)
-		designer.DELETE("/fields/:fieldId", designerHandler.DeleteField)
-		designer.PUT("/fields/:fieldId/order", designerHandler.UpdateFieldOrder)
-
-		// Record Routes
-		designer.POST("/records", designerHandler.CreateRecord)
-		designer.GET("/records/:recordId", designerHandler.GetRecord)
-		designer.GET("/modules/:moduleKey/records", designerHandler.GetRecordsByModule)
-		designer.PUT("/records/:recordId", designerHandler.UpdateRecord)
-		designer.DELETE("/records/:recordId", designerHandler.DeleteRecord)
+		designerGroup.POST("/fields", designerHandler.CreateField)
+		designerGroup.GET("/fields/:fieldId", designerHandler.GetField)
+		designerGroup.GET("/modules/:moduleKey/fields", designerHandler.GetFieldsByModule)
+		designerGroup.PUT("/fields/:fieldId", designerHandler.UpdateField)
+		designerGroup.DELETE("/fields/:fieldId", designerHandler.DeleteField)
+		designerGroup.PUT("/fields/:fieldId/order", designerHandler.UpdateFieldOrder)
 
 		// Form Layout Routes
-		designer.GET("/modules/:moduleKey/layout", designerHandler.GetFormLayout)
+		designerGroup.GET("/modules/:moduleKey/layout", designerHandler.GetFormLayout)
 
 		// Module Column Routes
-		designer.POST("/module-columns", designerHandler.CreateModuleColumn)
-		designer.GET(
-			"/modules/:moduleKey/reference-columns",
-			designerHandler.GetReferenceColumns,
-		)
-		designer.GET("/module-columns/:columnId", designerHandler.GetModuleColumn)
-		designer.GET("/modules/:moduleKey/columns", designerHandler.GetModuleColumnsByModule)
-		designer.PUT("/module-columns/:columnId", designerHandler.UpdateModuleColumn)
-		designer.DELETE("/module-columns/:columnId", designerHandler.DeleteModuleColumn)
+		designerGroup.POST("/module-columns", designerHandler.CreateModuleColumn)
+		designerGroup.GET("/modules/:moduleKey/reference-columns", designerHandler.GetReferenceColumns)
+		designerGroup.GET("/module-columns/:columnId", designerHandler.GetModuleColumn)
+		designerGroup.GET("/modules/:moduleKey/columns", designerHandler.GetModuleColumnsByModule)
+		designerGroup.PUT("/module-columns/:columnId", designerHandler.UpdateModuleColumn)
+		designerGroup.DELETE("/module-columns/:columnId", designerHandler.DeleteModuleColumn)
 	}
 
 	port := os.Getenv("PORT")
