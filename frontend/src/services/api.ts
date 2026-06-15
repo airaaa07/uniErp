@@ -10,7 +10,6 @@ import type {
   Module,
   ModuleCreate,
   ModuleUpdate,
-  ModuleClone,
   Field,
   FieldCreate,
   FieldUpdate,
@@ -24,7 +23,7 @@ import type {
   ModuleColumnUpdate
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.201:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
