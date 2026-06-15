@@ -142,6 +142,7 @@ export interface FieldUpdate {
   is_audited?: boolean;
   is_searchable?: boolean;
   is_exportable?: boolean;
+  is_active?: boolean;
   sort_order?: number;
 }
 

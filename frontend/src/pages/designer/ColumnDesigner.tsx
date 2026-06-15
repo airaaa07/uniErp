@@ -82,8 +82,21 @@ const ColumnDesigner: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Restore selected module from localStorage after modules are loaded
+    const savedModuleId = localStorage.getItem('selectedModuleId');
+    if (savedModuleId && modules.length > 0) {
+      const savedModule = modules.find(m => m.module_id === savedModuleId);
+      if (savedModule) {
+        setSelectedModule(savedModule);
+      }
+    }
+  }, [modules]);
+
+  useEffect(() => {
     if (selectedModule) {
       loadColumns();
+      // Save selected module to localStorage
+      localStorage.setItem('selectedModuleId', selectedModule.module_id);
     }
   }, [selectedModule]);
 
@@ -240,15 +253,15 @@ const ColumnDesigner: React.FC = () => {
         <FormControl fullWidth>
           <InputLabel>Select Module</InputLabel>
           <Select
-            value={selectedModule?.module_id || ""}
+            value={selectedModule?.module_key || ""}
             onChange={(e) => {
-              const module = modules.find((m) => m.module_id === e.target.value);
+              const module = modules.find((m) => m.module_key === e.target.value);
               setSelectedModule(module || null);
             }}
             label="Select Module"
           >
             {modules.map((module) => (
-              <MenuItem key={module.module_id} value={module.module_id}>
+              <MenuItem key={module.module_key} value={module.module_key}>
                 {module.module_name} ({module.module_key})
               </MenuItem>
             ))}

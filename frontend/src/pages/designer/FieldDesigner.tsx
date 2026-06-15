@@ -308,9 +308,22 @@ const FieldDesigner: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    // Restore selected module from localStorage after modules are loaded
+    const savedModuleKey = localStorage.getItem('selectedModuleKey');
+    if (savedModuleKey && modules.length > 0) {
+      const savedModule = modules.find(m => m.module_key === savedModuleKey);
+      if (savedModule) {
+        setSelectedModule(savedModule);
+      }
+    }
+  }, [modules]);
+
+  useEffect(() => {
     if (selectedModule) {
       loadColumns();
       loadFields();
+      // Save selected module to localStorage
+      localStorage.setItem('selectedModuleKey', selectedModule.module_key);
     }
   }, [selectedModule]);
 

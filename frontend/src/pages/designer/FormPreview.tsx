@@ -209,6 +209,8 @@ const FormPreview: React.FC = () => {
       });
       setSubmitted(true);
       setFormData({});
+      // Clear saved form data from localStorage after successful submission
+      localStorage.removeItem(`formData_${moduleKey}`);
       setTimeout(() => setSubmitted(false), 3000);
     } catch (error) {
       console.error("Error saving record:", error);

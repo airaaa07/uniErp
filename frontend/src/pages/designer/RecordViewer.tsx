@@ -136,13 +136,40 @@ const RecordViewer: React.FC = () => {
 
   useEffect(() => {
     loadModules();
+    // Restore selected module from localStorage
+    const savedModuleKey = localStorage.getItem('selectedModuleKey');
+    if (savedModuleKey) {
+      setModuleKey(savedModuleKey);
+    }
+    // Restore reveal PII state
+    const savedRevealPii = localStorage.getItem('revealPii');
+    if (savedRevealPii) {
+      setRevealPii(savedRevealPii === 'true');
+    }
+    // Restore search query
+    const savedSearchQuery = localStorage.getItem('searchQuery');
+    if (savedSearchQuery) {
+      setSearchQuery(savedSearchQuery);
+    }
   }, []);
 
   useEffect(() => {
     if (moduleKey) {
       loadData();
+      // Save selected module to localStorage
+      localStorage.setItem('selectedModuleKey', moduleKey);
     }
   }, [moduleKey]);
+
+  // Save reveal PII state to localStorage
+  useEffect(() => {
+    localStorage.setItem('revealPii', revealPii.toString());
+  }, [revealPii]);
+
+  // Save search query to localStorage
+  useEffect(() => {
+    localStorage.setItem('searchQuery', searchQuery);
+  }, [searchQuery]);
 
   // Reload data when component becomes visible (for real-time updates from FormPreview)
   useEffect(() => {
