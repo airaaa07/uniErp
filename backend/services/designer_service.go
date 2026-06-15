@@ -4,6 +4,8 @@ import (
 	"backend/models"
 	"encoding/json"
 	"fmt"
+	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -223,117 +225,111 @@ func (s *DesignerService) GetFieldsByModule(moduleKey string) ([]models.Field, e
 	}
 	return fields, nil
 }
-
 func (s *DesignerService) UpdateField(fieldID int64, req models.FieldUpdate) (*models.Field, error) {
 	query := "UPDATE fields SET updated_at = NOW()"
 	args := []interface{}{}
-	argCount := 1
+
+	// === ADD THIS BLOCK ===
+	if req.FieldKey != nil {
+		query += fmt.Sprintf(", field_key = $%d", len(args)+1)
+		args = append(args, *req.FieldKey)
+	}
 
 	if req.Label != nil {
-		argCount++
-		query += fmt.Sprintf(", label = $%d", argCount)
+		query += fmt.Sprintf(", label = $%d", len(args)+1)
 		args = append(args, *req.Label)
 	}
 
 	if req.FieldType != nil {
-		argCount++
-		query += fmt.Sprintf(", field_type = $%d", argCount)
+		query += fmt.Sprintf(", field_type = $%d", len(args)+1)
 		args = append(args, *req.FieldType)
 	}
 
 	if req.FieldGroupName != nil {
-		argCount++
-		query += fmt.Sprintf(", field_group_name = $%d", argCount)
+		query += fmt.Sprintf(", field_group_name = $%d", len(args)+1)
 		args = append(args, *req.FieldGroupName)
 	}
 
 	if req.Placeholder != nil {
-		argCount++
-		query += fmt.Sprintf(", placeholder = $%d", argCount)
+		query += fmt.Sprintf(", placeholder = $%d", len(args)+1)
 		args = append(args, *req.Placeholder)
 	}
 
 	if req.HelpTooltip != nil {
-		argCount++
-		query += fmt.Sprintf(", help_tooltip = $%d", argCount)
+		query += fmt.Sprintf(", help_tooltip = $%d", len(args)+1)
 		args = append(args, *req.HelpTooltip)
 	}
 
 	if req.DefaultValue != nil {
-		argCount++
-		query += fmt.Sprintf(", default_value = $%d", argCount)
+		query += fmt.Sprintf(", default_value = $%d", len(args)+1)
 		args = append(args, *req.DefaultValue)
 	}
 
 	if req.MinValue != nil {
-		argCount++
-		query += fmt.Sprintf(", min_value = $%d", argCount)
+		query += fmt.Sprintf(", min_value = $%d", len(args)+1)
 		args = append(args, *req.MinValue)
 	}
 
 	if req.MaxValue != nil {
-		argCount++
-		query += fmt.Sprintf(", max_value = $%d", argCount)
+		query += fmt.Sprintf(", max_value = $%d", len(args)+1)
 		args = append(args, *req.MaxValue)
 	}
 
 	if req.SystemField != nil {
-		argCount++
-		query += fmt.Sprintf(", system_field = $%d", argCount)
+		query += fmt.Sprintf(", system_field = $%d", len(args)+1)
 		args = append(args, *req.SystemField)
 	}
 
 	if req.IsMandatory != nil {
-		argCount++
-		query += fmt.Sprintf(", is_mandatory = $%d", argCount)
+		query += fmt.Sprintf(", is_mandatory = $%d", len(args)+1)
 		args = append(args, *req.IsMandatory)
 	}
 
-
 	if req.IsVisible != nil {
-		argCount++
-		query += fmt.Sprintf(", is_visible = $%d", argCount)
+		query += fmt.Sprintf(", is_visible = $%d", len(args)+1)
 		args = append(args, *req.IsVisible)
 	}
 
 	if req.IsSearchable != nil {
-		argCount++
-		query += fmt.Sprintf(", is_searchable = $%d", argCount)
+		query += fmt.Sprintf(", is_searchable = $%d", len(args)+1)
 		args = append(args, *req.IsSearchable)
 	}
 
 	if req.IsExportable != nil {
-		argCount++
-		query += fmt.Sprintf(", is_exportable = $%d", argCount)
+		query += fmt.Sprintf(", is_exportable = $%d", len(args)+1)
 		args = append(args, *req.IsExportable)
 	}
 
 	if req.IsPii != nil {
-		argCount++
-		query += fmt.Sprintf(", is_pii = $%d", argCount)
+		query += fmt.Sprintf(", is_pii = $%d", len(args)+1)
 		args = append(args, *req.IsPii)
 	}
 
 	if req.IsAudited != nil {
-		argCount++
-		query += fmt.Sprintf(", is_audited = $%d", argCount)
+		query += fmt.Sprintf(", is_audited = $%d", len(args)+1)
 		args = append(args, *req.IsAudited)
 	}
 
-
 	if req.SortOrder != nil {
-		argCount++
-		query += fmt.Sprintf(", sort_order = $%d", argCount)
+		query += fmt.Sprintf(", sort_order = $%d", len(args)+1)
 		args = append(args, *req.SortOrder)
 	}
 
-	argCount++
-	query += fmt.Sprintf(" WHERE field_id = $%d", argCount)
+	// Nothing to update
+	if len(args) == 0 {
+		return s.GetFieldByID(fieldID)
+	}
+
+	query += fmt.Sprintf(" WHERE field_id = $%d", len(args)+1)
 	args = append(args, fieldID)
+
+	// Debug logging
+	log.Printf("QUERY: %s", query)
+	log.Printf("ARGS: %#v", args)
 
 	_, err := s.db.Exec(query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("update field failed: %w", err)
 	}
 
 	return s.GetFieldByID(fieldID)
@@ -350,29 +346,51 @@ func (s *DesignerService) UpdateFieldOrder(fieldID int64, newOrder int16) error 
 }
 
 // ==================== RECORD OPERATIONS ====================
-
 func (s *DesignerService) CreateRecord(req models.RecordCreate, createdBy int64) (*models.Record, error) {
 	recordID := uuid.New().String()
 
-	// Convert data map to JSON
 	dataJSON, err := json.Marshal(req.Data)
 	if err != nil {
 		return nil, err
 	}
 
 	var record models.Record
+	var rawData []byte
+
 	err = s.db.QueryRow(
-		`INSERT INTO records (record_id, module_key, data, created_by)
-		 VALUES ($1, $2, $3, $4)
-		 RETURNING record_id, module_key, data, created_by, created_at, updated_at`,
-		recordID, req.ModuleKey, string(dataJSON), createdBy,
+		`INSERT INTO records (
+			record_id,
+			module_key,
+			data,
+			created_by
+		)
+		VALUES ($1, $2, $3::jsonb, $4)
+		RETURNING
+			record_id,
+			module_key,
+			data,
+			created_by,
+			created_at`,
+		recordID,
+		req.ModuleKey,
+		dataJSON,
+		createdBy,
 	).Scan(
-		&record.RecordID, &record.ModuleKey, &record.Data,
-		&record.CreatedBy, &record.CreatedAt, &record.UpdatedAt,
+		&record.RecordID,
+		&record.ModuleKey,
+		&rawData,
+		&record.CreatedBy,
+		&record.CreatedAt,
 	)
 
 	if err != nil {
 		return nil, err
+	}
+
+	if len(rawData) > 0 {
+		if err := json.Unmarshal(rawData, &record.Data); err != nil {
+			return nil, err
+		}
 	}
 
 	return &record, nil
@@ -386,13 +404,53 @@ func (s *DesignerService) GetRecord(recordID string) (*models.Record, error) {
 	}
 	return &record, nil
 }
-
 func (s *DesignerService) GetRecordsByModule(moduleKey string) ([]models.Record, error) {
-	var records []models.Record
-	err := s.db.Select(&records, "SELECT * FROM records WHERE module_key = $1 ORDER BY created_at DESC", moduleKey)
+	type recordRow struct {
+		RecordID  string    `db:"record_id"`
+		ModuleKey string    `db:"module_key"`
+		Data      []byte    `db:"data"`
+		CreatedBy *int64    `db:"created_by"`
+		CreatedAt time.Time `db:"created_at"`
+	}
+
+	var rows []recordRow
+
+	err := s.db.Select(
+		&rows,
+		`SELECT record_id,
+		        module_key,
+		        data,
+		        created_by,
+		        created_at
+		   FROM records
+		  WHERE module_key = $1
+		  ORDER BY created_at DESC`,
+		moduleKey,
+	)
 	if err != nil {
 		return nil, err
 	}
+
+	records := make([]models.Record, 0, len(rows))
+
+	for _, row := range rows {
+		var data map[string]interface{}
+
+		if len(row.Data) > 0 {
+			if err := json.Unmarshal(row.Data, &data); err != nil {
+				return nil, err
+			}
+		}
+
+		records = append(records, models.Record{
+			RecordID:  row.RecordID,
+			ModuleKey: row.ModuleKey,
+			Data:      data,
+			CreatedBy: row.CreatedBy,
+			CreatedAt: row.CreatedAt,
+		})
+	}
+
 	return records, nil
 }
 
@@ -477,20 +535,122 @@ func boolPtr(b bool) *bool {
 
 // ==================== MODULE COLUMN OPERATIONS ====================
 
-func (s *DesignerService) CreateModuleColumn(req models.ModuleColumnCreate) (*models.ModuleColumn, error) {
+func (s *DesignerService) CreateModuleColumn(
+	req models.ModuleColumnCreate,
+) (*models.ModuleColumn, error) {
+
+	// Validate foreign key mapping
+	if req.ForeignModuleID != nil {
+
+		var referencedColumn models.ModuleColumn
+
+		err := s.db.Get(
+			&referencedColumn,
+			`
+			SELECT *
+			FROM module_columns
+			WHERE module_id=$1
+			AND column_name=$2
+			LIMIT 1
+			`,
+			req.ForeignModuleID,
+			req.ForeignColumnName,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf(
+				"referenced column not found",
+			)
+		}
+
+		// Only PK or UNIQUE allowed
+		if !referencedColumn.IsPrimaryKey &&
+			!referencedColumn.IsUnique {
+
+			return nil,
+				fmt.Errorf(
+					"foreign key must reference PK or UNIQUE column",
+				)
+		}
+
+		// Datatype validation
+		if referencedColumn.DbDataType !=
+			req.DbDataType {
+
+			return nil,
+				fmt.Errorf(
+					"datatype mismatch: %s -> %s",
+					req.DbDataType,
+					referencedColumn.DbDataType,
+				)
+		}
+	}
+
 	var columnID int64
 
 	err := s.db.QueryRow(
-		`INSERT INTO module_columns (
-			module_id, column_name, db_data_type, db_length, db_precision, db_scale,
-			is_nullable, is_unique, is_primary_key, is_auto_increment,
-			default_value, check_constraint, foreign_module_id, foreign_column_name
+		`
+		INSERT INTO module_columns (
+
+			module_id,
+			column_name,
+			db_data_type,
+
+			db_length,
+			db_precision,
+			db_scale,
+
+			is_nullable,
+			is_unique,
+
+			is_primary_key,
+			is_auto_increment,
+
+			default_value,
+			check_constraint,
+
+			foreign_module_id,
+			foreign_column_name
+
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-		RETURNING column_id`,
-		req.ModuleID, req.ColumnName, req.DbDataType, req.DbLength, req.DbPrecision, req.DbScale,
-		req.IsNullable, req.IsUnique, req.IsPrimaryKey, req.IsAutoIncrement,
-		req.DefaultValue, req.CheckConstraint, req.ForeignModuleID, req.ForeignColumnName,
+
+		VALUES (
+
+			$1,$2,$3,
+
+			$4,$5,$6,
+
+			$7,$8,
+
+			$9,$10,
+
+			$11,$12,
+
+			$13,$14
+		)
+
+		RETURNING column_id
+		`,
+
+		req.ModuleID,
+		req.ColumnName,
+		req.DbDataType,
+
+		req.DbLength,
+		req.DbPrecision,
+		req.DbScale,
+
+		req.IsNullable,
+		req.IsUnique,
+
+		req.IsPrimaryKey,
+		req.IsAutoIncrement,
+
+		req.DefaultValue,
+		req.CheckConstraint,
+
+		req.ForeignModuleID,
+		req.ForeignColumnName,
 	).Scan(&columnID)
 
 	if err != nil {

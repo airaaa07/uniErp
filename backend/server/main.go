@@ -151,6 +151,10 @@ func main() {
 
 		// Module Column Routes
 		designer.POST("/module-columns", designerHandler.CreateModuleColumn)
+		designer.GET(
+			"/modules/:moduleKey/reference-columns",
+			designerHandler.GetReferenceColumns,
+		)
 		designer.GET("/module-columns/:columnId", designerHandler.GetModuleColumn)
 		designer.GET("/modules/:moduleKey/columns", designerHandler.GetModuleColumnsByModule)
 		designer.PUT("/module-columns/:columnId", designerHandler.UpdateModuleColumn)

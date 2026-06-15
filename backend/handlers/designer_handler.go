@@ -320,7 +320,64 @@ func (h *DesignerHandler) CreateModuleColumn(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, column)
 }
+func (h *DesignerHandler) GetReferenceColumns(c *gin.Context) {
 
+	moduleKey := c.Param("moduleKey")
+
+	module, err :=
+		h.designerService.GetModule(
+			moduleKey,
+		)
+
+	if err != nil {
+		c.JSON(
+			404,
+			gin.H{
+				"error": "module not found",
+			},
+		)
+		return
+	}
+
+	columns,
+		err :=
+		h.designerService.
+			GetModuleColumnsByModule(
+				module.ModuleID,
+			)
+
+	if err != nil {
+
+		c.JSON(
+			500,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+
+		return
+	}
+
+	var allowed []models.ModuleColumn
+
+	for _, c := range columns {
+
+		if c.IsPrimaryKey ||
+			c.IsUnique {
+
+			allowed =
+				append(
+					allowed,
+					c,
+				)
+		}
+	}
+
+	c.JSON(
+		200,
+		allowed,
+	)
+}
 func (h *DesignerHandler) GetModuleColumn(c *gin.Context) {
 	columnID := c.Param("columnId")
 	var columnIDInt int64

@@ -22,6 +22,8 @@ import {
   TableRow,
   Switch,
   Chip,
+  Divider,
+  FormHelperText,
 } from "@mui/material";
 
 import {
@@ -40,6 +42,10 @@ const ColumnDesigner: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingColumn, setEditingColumn] = useState<ModuleColumn | null>(null);
+
+  // Foreign key related states
+  const [referenceColumns, setReferenceColumns] = useState<ModuleColumn[]>([]);
+  const [loadingReference, setLoadingReference] = useState(false);
 
   const [formData, setFormData] = useState<ModuleColumnCreate>({
     module_id: "",
@@ -81,6 +87,15 @@ const ColumnDesigner: React.FC = () => {
     }
   }, [selectedModule]);
 
+  // Load reference columns when foreign module changes
+  useEffect(() => {
+    if (formData.foreign_module_id) {
+      loadReferenceColumns(formData.foreign_module_id);
+    } else {
+      setReferenceColumns([]);
+    }
+  }, [formData.foreign_module_id]);
+
   const loadModules = async () => {
     try {
       setLoading(true);
@@ -88,7 +103,6 @@ const ColumnDesigner: React.FC = () => {
       setModules(response.data || []);
     } catch (error) {
       console.error("Error loading modules:", error);
-      setModules([]);
     } finally {
       setLoading(false);
     }
@@ -102,9 +116,25 @@ const ColumnDesigner: React.FC = () => {
       setColumns(response.data || []);
     } catch (error) {
       console.error("Error loading columns:", error);
-      setColumns([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadReferenceColumns = async (moduleId: string) => {
+    setLoadingReference(true);
+    try {
+      // Find module key from ID
+      const targetModule = modules.find(m => m.module_id === moduleId);
+      if (!targetModule) return;
+
+      const response = await designerAPI.getReferenceColumns(targetModule.module_key);
+      setReferenceColumns(response.data || []);
+    } catch (error) {
+      console.error("Error loading reference columns:", error);
+      setReferenceColumns([]);
+    } finally {
+      setLoadingReference(false);
     }
   };
 
@@ -155,10 +185,7 @@ const ColumnDesigner: React.FC = () => {
   };
 
   const handleDelete = async (columnId: number) => {
-    if (!window.confirm("Are you sure you want to delete this column?")) {
-      return;
-    }
-
+    if (!window.confirm("Are you sure you want to delete this column?")) return;
     try {
       await designerAPI.deleteModuleColumn(columnId);
       loadColumns();
@@ -174,6 +201,12 @@ const ColumnDesigner: React.FC = () => {
       return;
     }
 
+    // Basic FK validation
+    if (formData.foreign_module_id && !formData.foreign_column_name) {
+      alert("Please select a foreign column when setting a foreign key");
+      return;
+    }
+
     try {
       if (editingColumn) {
         const updateData: ModuleColumnUpdate = { ...formData };
@@ -183,10 +216,18 @@ const ColumnDesigner: React.FC = () => {
       }
       setOpenDialog(false);
       loadColumns();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving column:", error);
-      alert("Error saving column");
+      alert(error.response?.data?.error || "Error saving column");
     }
+  };
+
+  const handleForeignModuleChange = (moduleId: string) => {
+    setFormData(prev => ({
+      ...prev,
+      foreign_module_id: moduleId || undefined,
+      foreign_column_name: undefined, // reset column when module changes
+    }));
   };
 
   return (
@@ -221,11 +262,7 @@ const ColumnDesigner: React.FC = () => {
             <Typography variant="h6">
               Columns for {selectedModule.module_name}
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreate}
-            >
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
               Add Column
             </Button>
           </Box>
@@ -238,23 +275,20 @@ const ColumnDesigner: React.FC = () => {
                   <TableCell>Data Type</TableCell>
                   <TableCell>Length</TableCell>
                   <TableCell>Nullable</TableCell>
-                  <TableCell>Primary Key</TableCell>
-                  <TableCell>Unique</TableCell>
-                  <TableCell>Auto Increment</TableCell>
+                  <TableCell>PK / Unique</TableCell>
+                  <TableCell>Foreign Key</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      Loading...
-                    </TableCell>
+                    <TableCell colSpan={7} align="center">Loading...</TableCell>
                   </TableRow>
                 ) : columns.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      No columns found. Add your first column to get started.
+                    <TableCell colSpan={7} align="center">
+                      No columns found. Add your first column.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -278,19 +312,17 @@ const ColumnDesigner: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {column.is_primary_key && <Chip label="PK" size="small" color="primary" />}
+                        {column.is_unique && <Chip label="Unique" size="small" color="secondary" sx={{ ml: 0.5 }} />}
                       </TableCell>
                       <TableCell>
-                        {column.is_unique && <Chip label="Unique" size="small" color="secondary" />}
+                        {column.foreign_module_id && column.foreign_column_name ? (
+                          <Chip label="FK" size="small" color="info" />
+                        ) : (
+                          "-"
+                        )}
                       </TableCell>
                       <TableCell>
-                        {column.is_auto_increment && <Chip label="Auto" size="small" color="info" />}
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleEdit(column)}
-                          title="Edit"
-                        >
+                        <IconButton size="small" onClick={() => handleEdit(column)} title="Edit">
                           <EditIcon fontSize="small" />
                         </IconButton>
                         <IconButton
@@ -316,6 +348,7 @@ const ColumnDesigner: React.FC = () => {
         <DialogTitle>{editingColumn ? "Edit Column" : "Create New Column"}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, mt: 2 }}>
+            {/* Basic Info */}
             <TextField
               fullWidth
               label="Column Name"
@@ -323,6 +356,7 @@ const ColumnDesigner: React.FC = () => {
               onChange={(e) => setFormData({ ...formData, column_name: e.target.value })}
               required
             />
+
             <FormControl fullWidth>
               <InputLabel>Data Type</InputLabel>
               <Select
@@ -337,86 +371,115 @@ const ColumnDesigner: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
+
             <TextField
               fullWidth
               label="Length"
               type="number"
               value={formData.db_length || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  db_length: e.target.value ? parseInt(e.target.value) : undefined,
-                })
-              }
+              onChange={(e) => setFormData({ ...formData, db_length: e.target.value ? parseInt(e.target.value) : undefined })}
             />
+
             <TextField
               fullWidth
               label="Precision"
               type="number"
               value={formData.db_precision || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  db_precision: e.target.value ? parseInt(e.target.value) : undefined,
-                })
-              }
+              onChange={(e) => setFormData({ ...formData, db_precision: e.target.value ? parseInt(e.target.value) : undefined })}
             />
+
             <TextField
               fullWidth
               label="Scale"
               type="number"
               value={formData.db_scale || ""}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  db_scale: e.target.value ? parseInt(e.target.value) : undefined,
-                })
-              }
+              onChange={(e) => setFormData({ ...formData, db_scale: e.target.value ? parseInt(e.target.value) : undefined })}
             />
+
             <TextField
               fullWidth
               label="Default Value"
               value={formData.default_value || ""}
               onChange={(e) => setFormData({ ...formData, default_value: e.target.value || undefined })}
             />
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <Typography>Nullable</Typography>
-              <Switch
-                checked={formData.is_nullable}
-                onChange={(e) => setFormData({ ...formData, is_nullable: e.target.checked })}
-              />
-            </Box>
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <Typography>Unique</Typography>
-              <Switch
-                checked={formData.is_unique}
-                onChange={(e) => setFormData({ ...formData, is_unique: e.target.checked })}
-              />
-            </Box>
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <Typography>Primary Key</Typography>
-              <Switch
-                checked={formData.is_primary_key}
-                onChange={(e) => setFormData({ ...formData, is_primary_key: e.target.checked })}
-              />
-            </Box>
-            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <Typography>Auto Increment</Typography>
-              <Switch
-                checked={formData.is_auto_increment}
-                onChange={(e) => setFormData({ ...formData, is_auto_increment: e.target.checked })}
-              />
-            </Box>
+
             <TextField
               fullWidth
               label="Check Constraint"
               value={formData.check_constraint || ""}
               onChange={(e) => setFormData({ ...formData, check_constraint: e.target.value || undefined })}
+              helperText="e.g. age > 18"
               sx={{ gridColumn: "span 2" }}
-              helperText="SQL check constraint (e.g., age > 18)"
             />
+
+            {/* Flags */}
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Typography>Nullable</Typography>
+              <Switch checked={formData.is_nullable} onChange={(e) => setFormData({ ...formData, is_nullable: e.target.checked })} />
+            </Box>
+
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Typography>Unique</Typography>
+              <Switch checked={formData.is_unique} onChange={(e) => setFormData({ ...formData, is_unique: e.target.checked })} />
+            </Box>
+
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Typography>Primary Key</Typography>
+              <Switch checked={formData.is_primary_key} onChange={(e) => setFormData({ ...formData, is_primary_key: e.target.checked })} />
+            </Box>
+
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Typography>Auto Increment</Typography>
+              <Switch checked={formData.is_auto_increment} onChange={(e) => setFormData({ ...formData, is_auto_increment: e.target.checked })} />
+            </Box>
+
+            <Divider sx={{ gridColumn: "span 2", my: 2 }} />
+
+            {/* Foreign Key Section */}
+            <Typography variant="subtitle1" sx={{ gridColumn: "span 2", mt: 1 }}>
+              Foreign Key (Optional)
+            </Typography>
+
+            <FormControl fullWidth>
+              <InputLabel>Foreign Module</InputLabel>
+              <Select
+                value={formData.foreign_module_id || ""}
+                onChange={(e) => handleForeignModuleChange(e.target.value)}
+                label="Foreign Module"
+              >
+                <MenuItem value="">None</MenuItem>
+                {modules
+                  .filter(m => m.module_id !== selectedModule?.module_id)
+                  .map((module) => (
+                    <MenuItem key={module.module_id} value={module.module_id}>
+                      {module.module_name} ({module.module_key})
+                    </MenuItem>
+                  ))}
+              </Select>
+              <FormHelperText>Select target table for foreign key</FormHelperText>
+            </FormControl>
+
+            <FormControl fullWidth disabled={!formData.foreign_module_id}>
+              <InputLabel>Foreign Column</InputLabel>
+              <Select
+                value={formData.foreign_column_name || ""}
+                onChange={(e) => setFormData({ ...formData, foreign_column_name: e.target.value || undefined })}
+                label="Foreign Column"
+              >
+                <MenuItem value="">Select Column</MenuItem>
+                {referenceColumns.map((col) => (
+                  <MenuItem key={col.column_id} value={col.column_name}>
+                    {col.column_name} ({col.db_data_type})
+                    {col.is_primary_key && " [PK]"}
+                    {col.is_unique && " [UNIQUE]"}
+                  </MenuItem>
+                ))}
+              </Select>
+              {loadingReference && <FormHelperText>Loading reference columns...</FormHelperText>}
+            </FormControl>
           </Box>
         </DialogContent>
+
         <DialogActions>
           <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
           <Button onClick={handleSave} variant="contained">

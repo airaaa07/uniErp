@@ -24,7 +24,7 @@ import type {
   ModuleColumnUpdate
 } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.14:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://192.168.1.201:8080/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -150,6 +150,12 @@ export const designerAPI = {
 
   // Module Column Operations
   createModuleColumn: (data: ModuleColumnCreate) => api.post<ModuleColumn>('/designer/module-columns', data),
+  getReferenceColumns:
+(moduleKey:string)=>
+
+api.get(
+`/designer/modules/${moduleKey}/reference-columns`
+),
   getModuleColumn: (columnId: number) => api.get<ModuleColumn>(`/designer/module-columns/${columnId}`),
   getModuleColumnsByModule: (moduleKey: string) => api.get<ModuleColumn[]>(`/designer/modules/${moduleKey}/columns`),
   updateModuleColumn: (columnId: number, data: ModuleColumnUpdate) => api.put<ModuleColumn>(`/designer/module-columns/${columnId}`, data),

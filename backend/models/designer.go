@@ -28,27 +28,27 @@ type ModuleUpdate struct {
 
 // Field represents a metadata field definition
 type Field struct {
-	FieldID        int64  `db:"field_id" json:"field_id"`
-	ModuleKey      string `db:"module_key" json:"module_key"`
-	Label          string `db:"label" json:"label"`
-	FieldKey       string `db:"field_key" json:"field_key"`
-	FieldType      string `db:"field_type" json:"field_type"`
-	FieldGroupID   *int   `db:"field_group_id" json:"field_group_id"`
-	FieldGroupName string `db:"field_group_name" json:"field_group_name"`
-	Placeholder    string `db:"placeholder" json:"placeholder"`
-	HelpTooltip    string `db:"help_tooltip" json:"help_tooltip"`
-	DefaultValue   string `db:"default_value" json:"default_value"`
-	MinValue       string `db:"min_value" json:"min_value"`
-	MaxValue       string `db:"max_value" json:"max_value"`
-	SystemField    bool   `db:"system_field" json:"system_field"`
-	IsVisible      bool   `db:"is_visible" json:"is_visible"`
-	IsMandatory    bool   `db:"is_mandatory" json:"is_mandatory"`
-	IsPii          bool   `db:"is_pii" json:"is_pii"`
-	IsAudited      bool   `db:"is_audited" json:"is_audited"`
-	IsSearchable   bool   `db:"is_searchable" json:"is_searchable"`
-	IsExportable   bool   `db:"is_exportable" json:"is_exportable"`
-	SortOrder      int16  `db:"sort_order" json:"sort_order"`
-	CreatedBy      *int64 `db:"created_by" json:"created_by"`
+	FieldID        int64     `db:"field_id" json:"field_id"`
+	ModuleKey      string    `db:"module_key" json:"module_key"`
+	Label          string    `db:"label" json:"label"`
+	FieldKey       string    `db:"field_key" json:"field_key"`
+	FieldType      string    `db:"field_type" json:"field_type"`
+	FieldGroupID   *int      `db:"field_group_id" json:"field_group_id"`
+	FieldGroupName string    `db:"field_group_name" json:"field_group_name"`
+	Placeholder    string    `db:"placeholder" json:"placeholder"`
+	HelpTooltip    string    `db:"help_tooltip" json:"help_tooltip"`
+	DefaultValue   string    `db:"default_value" json:"default_value"`
+	MinValue       string    `db:"min_value" json:"min_value"`
+	MaxValue       string    `db:"max_value" json:"max_value"`
+	SystemField    bool      `db:"system_field" json:"system_field"`
+	IsVisible      bool      `db:"is_visible" json:"is_visible"`
+	IsMandatory    bool      `db:"is_mandatory" json:"is_mandatory"`
+	IsPii          bool      `db:"is_pii" json:"is_pii"`
+	IsAudited      bool      `db:"is_audited" json:"is_audited"`
+	IsSearchable   bool      `db:"is_searchable" json:"is_searchable"`
+	IsExportable   bool      `db:"is_exportable" json:"is_exportable"`
+	SortOrder      int16     `db:"sort_order" json:"sort_order"`
+	CreatedBy      *int64    `db:"created_by" json:"created_by"`
 	CreatedAt      time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt      time.Time `db:"updated_at" json:"updated_at"`
 }
@@ -78,6 +78,7 @@ type FieldCreate struct {
 // FieldUpdate represents the request to update a field
 type FieldUpdate struct {
 	Label          *string `json:"label"`
+	FieldKey       *string `json:"field_key"`
 	FieldType      *string `json:"field_type"`
 	FieldGroupName *string `json:"field_group_name"`
 	Placeholder    *string `json:"placeholder"`
@@ -97,12 +98,12 @@ type FieldUpdate struct {
 
 // Record represents a metadata record (form submission)
 type Record struct {
-	RecordID  string    `db:"record_id" json:"record_id"`
-	ModuleKey string    `db:"module_key" json:"module_key"`
-	Data      string    `db:"data" json:"data"` // JSONB as string
-	CreatedBy *int64    `db:"created_by" json:"created_by"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
+	RecordID  string                 `db:"record_id" json:"record_id"`
+	ModuleKey string                 `db:"module_key" json:"module_key"`
+	Data      map[string]interface{} `db:"data" json:"data"` // JSONB as string
+	CreatedBy *int64                 `db:"created_by" json:"created_by"`
+	CreatedAt time.Time              `db:"created_at" json:"created_at"`
+	// UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 // RecordCreate represents the request to create a new record

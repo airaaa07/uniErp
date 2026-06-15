@@ -45,7 +45,15 @@ const C = {
 };
 
 // Toggle component
-function Toggle({ checked, onChange, disabled = false }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function Toggle({
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       onClick={() => !disabled && onChange(!checked)}
@@ -80,8 +88,16 @@ function Toggle({ checked, onChange, disabled = false }: { checked: boolean; onC
 }
 
 // CustomChip component
-function CustomChip({ children, scheme = "gray" }: { children: React.ReactNode; scheme?: string }) {
-  const schemes: { [key: string]: { bg: string; color: string; border: string } } = {
+function CustomChip({
+  children,
+  scheme = "gray",
+}: {
+  children: React.ReactNode;
+  scheme?: string;
+}) {
+  const schemes: {
+    [key: string]: { bg: string; color: string; border: string };
+  } = {
     blue: { bg: "#E6F1FB", color: "#0C447C", border: "#9FC7F0" },
     red: { bg: C.redBg, color: C.red, border: C.redBorder },
     green: { bg: C.greenBg, color: C.green, border: C.greenBorder },
@@ -131,14 +147,14 @@ const RecordViewer: React.FC = () => {
   // Reload data when component becomes visible (for real-time updates from FormPreview)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && moduleKey) {
+      if (document.visibilityState === "visible" && moduleKey) {
         loadData();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [moduleKey]);
 
@@ -170,11 +186,15 @@ const RecordViewer: React.FC = () => {
     }
   };
 
-  const exportableFields = fields.filter((f) => f.is_exportable).sort((a, b) => a.sort_order - b.sort_order);
+  const exportableFields = fields
+    .filter((f) => f.is_exportable)
+    .sort((a, b) => a.sort_order - b.sort_order);
 
   const filteredRecords = records.filter((record) => {
     if (!searchQuery) return true;
-    const dataStr = JSON.stringify(record.data).toLowerCase();
+    const dataStr = Object.values(record.data || {})
+      .join(" ")
+      .toLowerCase();
     return dataStr.includes(searchQuery.toLowerCase());
   });
 
@@ -188,9 +208,23 @@ const RecordViewer: React.FC = () => {
   };
 
   return (
-    <Box sx={{ height: "100vh", display: "flex", flexDirection: "column", background: C.bg, fontFamily: "inherit" }}>
+    <Box
+      sx={{
+        height: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        background: C.bg,
+        fontFamily: "inherit",
+      }}
+    >
       {/* Header */}
-      <Box sx={{ padding: "12px 16px", borderBottom: `0.5px solid ${C.border}`, background: C.surface }}>
+      <Box
+        sx={{
+          padding: "12px 16px",
+          borderBottom: `0.5px solid ${C.border}`,
+          background: C.surface,
+        }}
+      >
         <Typography variant="h6" sx={{ mb: 2 }}>
           Record Viewer
         </Typography>
@@ -212,7 +246,14 @@ const RecordViewer: React.FC = () => {
       </Box>
 
       {moduleKey ? (
-        <Box sx={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <Box
+          sx={{
+            flex: 1,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           {/* Toolbar */}
           <Box
             sx={{
@@ -226,10 +267,20 @@ const RecordViewer: React.FC = () => {
             }}
           >
             <Typography sx={{ fontSize: 13, fontWeight: 500 }}>
-              {filteredRecords.length} submission{filteredRecords.length !== 1 ? "s" : ""}
+              {filteredRecords.length} submission
+              {filteredRecords.length !== 1 ? "s" : ""}
             </Typography>
-            <CustomChip scheme="gray">{exportableFields.length} columns</CustomChip>
-            <Box sx={{ ml: "auto", display: "flex", alignItems: "center", gap: 1.5 }}>
+            <CustomChip scheme="gray">
+              {exportableFields.length} columns
+            </CustomChip>
+            <Box
+              sx={{
+                ml: "auto",
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+              }}
+            >
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <SearchIcon sx={{ color: C.textFaint, fontSize: 16 }} />
                 <TextField
@@ -244,7 +295,9 @@ const RecordViewer: React.FC = () => {
                 />
               </Box>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Typography sx={{ fontSize: 12, color: C.textMid }}>Reveal PII</Typography>
+                <Typography sx={{ fontSize: 12, color: C.textMid }}>
+                  Reveal PII
+                </Typography>
                 <Toggle checked={revealPii} onChange={setRevealPii} />
               </Box>
               <Button
@@ -278,7 +331,9 @@ const RecordViewer: React.FC = () => {
                 }}
               >
                 <Typography sx={{ fontSize: 40 }}>⏳</Typography>
-                <Typography sx={{ fontSize: 14, fontWeight: 600, color: C.textMid }}>
+                <Typography
+                  sx={{ fontSize: 14, fontWeight: 600, color: C.textMid }}
+                >
                   Loading records...
                 </Typography>
               </Box>
@@ -295,7 +350,9 @@ const RecordViewer: React.FC = () => {
                 }}
               >
                 <Typography sx={{ fontSize: 40 }}>📋</Typography>
-                <Typography sx={{ fontSize: 14, fontWeight: 600, color: C.textMid }}>
+                <Typography
+                  sx={{ fontSize: 14, fontWeight: 600, color: C.textMid }}
+                >
                   No submissions yet
                 </Typography>
                 <Typography sx={{ fontSize: 12, color: C.textFaint }}>
@@ -417,7 +474,9 @@ const RecordViewer: React.FC = () => {
                                 ●●●●●●
                               </span>
                             ) : (
-                              (JSON.parse(record.data)[field.field_key] || <span style={{ color: C.border }}>—</span>)
+                              record.data?.[field.field_key] || (
+                                <span style={{ color: C.border }}>—</span>
+                              )
                             )}
                           </TableCell>
                         ))}
