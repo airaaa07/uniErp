@@ -101,3 +101,8 @@ CREATE TABLE app_settings (
 
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+
+
+docker compose up --build

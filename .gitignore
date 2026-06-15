@@ -1,3 +1,7 @@
 backend/.env
 frontend/.env
 frontend/node_modules
+ARCHITECTURE_DOCUMENTATION.md
+COMPLETED_FEATURES.md
+ARCHITECTURE_AUDIT_REPORT.md
+docs/
