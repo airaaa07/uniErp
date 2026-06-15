@@ -100,6 +100,12 @@ export interface Field {
   is_searchable: boolean;
   is_exportable: boolean;
   sort_order: number;
+  is_active?: boolean;
+  min_length?: number;
+  max_length?: number;
+  regex_validation?: string;
+  is_read_only?: boolean;
+  dropdown_options?: any;
   created_by?: number;
   created_at: string;
   updated_at: string;
@@ -149,7 +155,7 @@ export interface FieldUpdate {
 export interface DesignerRecord {
   record_id: string;
   module_key: string;
-  data: string; // JSON string
+  data: any; // Parsed JSON data
   created_by?: number;
   created_at: string;
   updated_at: string;

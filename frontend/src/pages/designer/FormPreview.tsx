@@ -2,22 +2,18 @@ import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
-  TextField,
   Typography,
   Grid,
   Select,
   MenuItem,
   Checkbox,
-  FormControlLabel,
-  RadioGroup,
-  Radio,
   Chip,
   FormControl,
   InputLabel,
 } from "@mui/material";
 
 import { designerAPI } from "../../services/api";
-import type { Field, FormLayout, DropdownOption, Module } from "../../types";
+import type { Field, FormLayout, Module } from "../../types";
 
 // Design tokens
 const C = {
