@@ -64,11 +64,11 @@ export default function Login() {
         {/* LEFT PANEL - Logo & Welcome */}
         <div className="w-full lg:w-[35%] bg-gray-100 flex flex-col items-center justify-center p-10 text-center">
           <div className="w-36 h-36 rounded-full overflow-hidden shadow-2xl border-8 border-white bg-white flex items-center justify-center text-rose-800 font-bold text-4xl">
-            S
+            U {/*Singhania University */}
           </div>
 
           <h1 className="mt-8 text-4xl font-bold text-gray-800 tracking-wide">
-            S University
+            University
           </h1>
 
           <p className="mt-4 text-sm text-gray-500">
@@ -164,7 +164,7 @@ export default function Login() {
             {/* Footer */}
             <div className="mt-10 text-center text-sm opacity-90">
               <p>ERP • Powered by <span className="font-bold">SlashCurate Technologies Pvt Ltd</span></p>
-              <p className="mt-2">© 2026 S University. All rights reserved.</p>
+              <p className="mt-2">© 2026 University. All rights reserved.</p>
             </div>
           </div>
         </div>

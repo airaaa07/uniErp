@@ -66,37 +66,57 @@ const SortableField: React.FC<SortableFieldProps> = ({ field, onEdit }) => {
   };
 
   return (
-    <Card ref={setNodeRef} style={style} sx={{ mb: 2, border: isDragging ? '1px solid #1976d2' : 'none' }}>
+    <Card
+      ref={setNodeRef}
+      style={style}
+      sx={{ mb: 2, border: isDragging ? "1px solid #1976d2" : "none" }}
+    >
       <CardContent sx={{ p: 2, "&:last-child": { pb: 2 } }}>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <IconButton 
-              size="small" 
-              sx={{ cursor: "grab" }} 
-              {...attributes} 
+            <IconButton
+              size="small"
+              sx={{ cursor: "grab" }}
+              {...attributes}
               {...listeners}
             >
               <DragHandleIcon fontSize="small" />
             </IconButton>
             <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: "bold" }}>
                 {field.label}
               </Typography>
-              <Typography variant="caption" color="textSecondary" sx={{ fontFamily: 'monospace' }}>
+              <Typography
+                variant="caption"
+                color="textSecondary"
+                sx={{ fontFamily: "monospace" }}
+              >
                 {field.field_key}
               </Typography>
             </Box>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Chip label={field.field_type} size="small" variant="outlined" />
-            {field.is_mandatory && <Chip label="Required" size="small" color="error" />}
+            {field.is_mandatory && (
+              <Chip label="Required" size="small" color="error" />
+            )}
             <IconButton size="small" onClick={() => onEdit(field)}>
               <EditIcon fontSize="small" />
             </IconButton>
           </Box>
         </Box>
         {field.help_tooltip && (
-          <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: "block", pl: 4.5 }}>
+          <Typography
+            variant="caption"
+            color="textSecondary"
+            sx={{ mt: 1, display: "block", pl: 4.5 }}
+          >
             {field.help_tooltip}
           </Typography>
         )}
@@ -111,7 +131,11 @@ interface DroppableSectionProps {
   onEdit: (field: Field) => void;
 }
 
-const DroppableSection: React.FC<DroppableSectionProps> = ({ sectionName, fields, onEdit }) => {
+const DroppableSection: React.FC<DroppableSectionProps> = ({
+  sectionName,
+  fields,
+  onEdit,
+}) => {
   const { setNodeRef } = useDroppable({
     id: sectionName,
   });
@@ -119,7 +143,7 @@ const DroppableSection: React.FC<DroppableSectionProps> = ({ sectionName, fields
   return (
     <SortableContext
       id={sectionName}
-      items={fields.map(f => f.field_id.toString())}
+      items={fields.map((f) => f.field_id.toString())}
       strategy={verticalListSortingStrategy}
     >
       <Box
@@ -149,9 +173,7 @@ const DroppableSection: React.FC<DroppableSectionProps> = ({ sectionName, fields
               bgcolor: "#f1f5f9",
             }}
           >
-            <Typography variant="body2">
-              Drag fields here
-            </Typography>
+            <Typography variant="body2">Drag fields here</Typography>
           </Box>
         ) : (
           fields.map((field) => (
@@ -167,7 +189,10 @@ const FormLayoutDesigner: React.FC = () => {
   const [modules, setModules] = useState<Module[]>([]);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [columns, setColumns] = useState<ModuleColumn[]>([]);
-  const [layout, setLayout] = useState<FormLayout | null>(null);
+  const [layout, setLayout] = useState<FormLayout>({
+    module_key: "",
+    sections: [],
+  });
   const [loading, setLoading] = useState(false);
 
   const sensors = useSensors(
@@ -178,7 +203,7 @@ const FormLayoutDesigner: React.FC = () => {
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   useEffect(() => {
@@ -187,9 +212,9 @@ const FormLayoutDesigner: React.FC = () => {
 
   useEffect(() => {
     // Restore selected module from localStorage after modules are loaded
-    const savedModuleId = localStorage.getItem('selectedModuleId');
+    const savedModuleId = localStorage.getItem("selectedModuleId");
     if (savedModuleId && modules.length > 0) {
-      const savedModule = modules.find(m => m.module_id === savedModuleId);
+      const savedModule = modules.find((m) => m.module_id === savedModuleId);
       if (savedModule) {
         setSelectedModule(savedModule);
       }
@@ -201,7 +226,7 @@ const FormLayoutDesigner: React.FC = () => {
       loadColumns();
       loadLayout();
       // Save selected module to localStorage
-      localStorage.setItem('selectedModuleId', selectedModule.module_id);
+      localStorage.setItem("selectedModuleId", selectedModule.module_id);
     }
   }, [selectedModule]);
 
@@ -222,7 +247,9 @@ const FormLayoutDesigner: React.FC = () => {
     if (!selectedModule) return;
     try {
       setLoading(true);
-      const response = await designerAPI.getModuleColumnsByModule(selectedModule.module_key);
+      const response = await designerAPI.getModuleColumnsByModule(
+        selectedModule.module_key,
+      );
       setColumns(response.data || []);
     } catch (error) {
       console.error("Error loading columns:", error);
@@ -234,10 +261,25 @@ const FormLayoutDesigner: React.FC = () => {
 
   const loadLayout = async () => {
     if (!selectedModule) return;
+
     try {
       setLoading(true);
-      const response = await designerAPI.getFormLayout(selectedModule.module_key);
-      setLayout(response.data || null);
+
+      const response = await designerAPI.getFormLayout(
+        selectedModule.module_key,
+      );
+
+      const layoutData = response.data;
+
+      if (!layoutData) {
+        setLayout(null);
+        return;
+      }
+
+      setLayout({
+        ...layoutData,
+        sections: Array.isArray(layoutData.sections) ? layoutData.sections : [],
+      });
     } catch (error) {
       console.error("Error loading layout:", error);
       setLayout(null);
@@ -247,7 +289,9 @@ const FormLayoutDesigner: React.FC = () => {
   };
 
   const handleFieldEdit = (field: Field) => {
-    alert(`Edit field: ${field.field_key}\nNavigate to Field Designer to edit this field.`);
+    alert(
+      `Edit field: ${field.field_key}\nNavigate to Field Designer to edit this field.`,
+    );
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -261,7 +305,7 @@ const FormLayoutDesigner: React.FC = () => {
     let activeField: Field | null = null;
     let sourceSectionName = "";
     for (const sec of layout.sections) {
-      const found = sec.fields.find(f => f.field_id === activeId);
+      const found = sec.fields.find((f) => f.field_id === activeId);
       if (found) {
         activeField = found;
         sourceSectionName = sec.name;
@@ -276,7 +320,7 @@ const FormLayoutDesigner: React.FC = () => {
     let targetIndex = -1;
 
     // Check if target is a section header/container
-    const isOverSection = layout.sections.some(s => s.name === overIdStr);
+    const isOverSection = layout.sections.some((s) => s.name === overIdStr);
     if (isOverSection) {
       targetSectionName = overIdStr;
       targetIndex = 0;
@@ -284,7 +328,7 @@ const FormLayoutDesigner: React.FC = () => {
       // Over is another field
       const overId = Number(overIdStr);
       for (const sec of layout.sections) {
-        const idx = sec.fields.findIndex(f => f.field_id === overId);
+        const idx = sec.fields.findIndex((f) => f.field_id === overId);
         if (idx !== -1) {
           targetSectionName = sec.name;
           targetIndex = idx;
@@ -298,22 +342,23 @@ const FormLayoutDesigner: React.FC = () => {
     // Same position same section?
     if (sourceSectionName === targetSectionName) {
       const sourceIndex = layout.sections
-        .find(s => s.name === sourceSectionName)!
-        .fields.findIndex(f => f.field_id === activeId);
+        .find((s) => s.name === sourceSectionName)!
+        .fields.findIndex((f) => f.field_id === activeId);
       if (sourceIndex === targetIndex) return;
     }
 
     // Build new sections array
-    const newSections = layout.sections.map(sec => {
+    const newSections = layout.sections.map((sec) => {
       let newFields = [...sec.fields];
       if (sec.name === sourceSectionName) {
-        newFields = newFields.filter(f => f.field_id !== activeId);
+        newFields = newFields.filter((f) => f.field_id !== activeId);
       }
       if (sec.name === targetSectionName) {
         const insertIdx = targetIndex === -1 ? newFields.length : targetIndex;
         newFields.splice(insertIdx, 0, {
           ...activeField!,
-          field_group_name: targetSectionName === "General" ? "" : targetSectionName,
+          field_group_name:
+            targetSectionName === "General" ? "" : targetSectionName,
         });
       }
       return {
@@ -331,21 +376,24 @@ const FormLayoutDesigner: React.FC = () => {
     try {
       // 1. If section changed, update the group name database field
       if (sourceSectionName !== targetSectionName) {
-        const newGroupName = targetSectionName === "General" ? "" : targetSectionName;
+        const newGroupName =
+          targetSectionName === "General" ? "" : targetSectionName;
         await designerAPI.updateField(activeId, {
           field_group_name: newGroupName,
         });
       }
 
       // 2. Re-sequence target section sort_orders
-      const targetSec = newSections.find(s => s.name === targetSectionName)!;
-      const promises = targetSec.fields.map((f, i) => 
-        designerAPI.updateFieldOrder(f.field_id, i + 1)
+      const targetSec = newSections.find((s) => s.name === targetSectionName)!;
+      const promises = targetSec.fields.map((f, i) =>
+        designerAPI.updateFieldOrder(f.field_id, i + 1),
       );
 
       // 3. Re-sequence source section sort_orders if changed
       if (sourceSectionName !== targetSectionName) {
-        const sourceSec = newSections.find(s => s.name === sourceSectionName)!;
+        const sourceSec = newSections.find(
+          (s) => s.name === sourceSectionName,
+        )!;
         sourceSec.fields.forEach((f, i) => {
           promises.push(designerAPI.updateFieldOrder(f.field_id, i + 1));
         });
@@ -371,7 +419,9 @@ const FormLayoutDesigner: React.FC = () => {
             <Select
               value={selectedModule?.module_key || ""}
               onChange={(e) => {
-                const module = modules.find((m) => m.module_key === e.target.value);
+                const module = modules.find(
+                  (m) => m.module_key === e.target.value,
+                );
                 setSelectedModule(module || null);
               }}
               label="Select Module"
@@ -387,7 +437,14 @@ const FormLayoutDesigner: React.FC = () => {
 
         {selectedModule && (
           <>
-            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 3,
+              }}
+            >
               <Typography variant="h6">
                 Form Layout for {selectedModule.module_name}
               </Typography>
@@ -415,20 +472,53 @@ const FormLayoutDesigner: React.FC = () => {
               ) : (
                 <Grid container spacing={2}>
                   {columns.map((column) => (
-                    <Grid size={{ xs: 12, sm: 6, md: 4 }} key={column.column_id}>
+                    <Grid
+                      size={{ xs: 12, sm: 6, md: 4 }}
+                      key={column.column_id}
+                    >
                       <Card variant="outlined">
                         <CardContent>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                          <Typography
+                            variant="subtitle2"
+                            sx={{ fontWeight: "bold" }}
+                          >
                             {column.column_name}
                           </Typography>
-                          <Typography variant="caption" color="textSecondary" sx={{ display: 'block' }}>
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                            sx={{ display: "block" }}
+                          >
                             {column.db_data_type}
                           </Typography>
-                          <Box sx={{ mt: 1, display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                            {column.is_primary_key && <Chip label="PK" size="small" color="primary" />}
-                            {column.is_unique && <Chip label="Unique" size="small" color="secondary" />}
-                            {!column.is_nullable && <Chip label="Not Null" size="small" color="error" />}
-                            {column.is_auto_increment && <Chip label="Auto" size="small" color="info" />}
+                          <Box
+                            sx={{
+                              mt: 1,
+                              display: "flex",
+                              gap: 0.5,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {column.is_primary_key && (
+                              <Chip label="PK" size="small" color="primary" />
+                            )}
+                            {column.is_unique && (
+                              <Chip
+                                label="Unique"
+                                size="small"
+                                color="secondary"
+                              />
+                            )}
+                            {!column.is_nullable && (
+                              <Chip
+                                label="Not Null"
+                                size="small"
+                                color="error"
+                              />
+                            )}
+                            {column.is_auto_increment && (
+                              <Chip label="Auto" size="small" color="info" />
+                            )}
                           </Box>
                         </CardContent>
                       </Card>
@@ -442,7 +532,7 @@ const FormLayoutDesigner: React.FC = () => {
               <Paper sx={{ p: 4, textAlign: "center" }}>
                 <Typography>Loading layout...</Typography>
               </Paper>
-            ) : !layout || layout.sections.length === 0 ? (
+            ) : !layout?.sections?.length ? (
               <Paper sx={{ p: 4, textAlign: "center" }}>
                 <Typography variant="body1" color="textSecondary">
                   No layout found. Make sure the module has fields defined.
@@ -457,13 +547,25 @@ const FormLayoutDesigner: React.FC = () => {
                 <Grid container spacing={3}>
                   {layout.sections.map((section, sectionIndex) => (
                     <Grid size={{ xs: 12, md: 6 }} key={sectionIndex}>
-                      <Paper sx={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-                        <Box sx={{ p: 2, bgcolor: "primary.main", color: "white" }}>
-                          <Typography variant="h6">
-                            {section.name}
-                          </Typography>
-                          <Typography variant="caption" color="inherit" sx={{ opacity: 0.8 }}>
-                            {section.fields.length} field{section.fields.length !== 1 ? "s" : ""}
+                      <Paper
+                        sx={{
+                          height: "100%",
+                          display: "flex",
+                          flexDirection: "column",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <Box
+                          sx={{ p: 2, bgcolor: "primary.main", color: "white" }}
+                        >
+                          <Typography variant="h6">{section.name}</Typography>
+                          <Typography
+                            variant="caption"
+                            color="inherit"
+                            sx={{ opacity: 0.8 }}
+                          >
+                            {section.fields.length} field
+                            {section.fields.length !== 1 ? "s" : ""}
                           </Typography>
                         </Box>
                         <DroppableSection
@@ -485,20 +587,30 @@ const FormLayoutDesigner: React.FC = () => {
             Layout Designer Instructions
           </Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-            The Form Layout Designer allows you to organize fields into sections for better form organization.
+            The Form Layout Designer allows you to organize fields into sections
+            for better form organization.
           </Typography>
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             <strong>How to use:</strong>
           </Typography>
           <Box component="ul" sx={{ pl: 3, color: "text.secondary" }}>
-            <li>Select a module from the dropdown above to load its form layout</li>
-            <li>Drag and drop the fields using the drag handle icon to reorder fields within a section or move them between sections</li>
-            <li>Use the Field Designer to create/edit individual fields and customize their settings</li>
+            <li>
+              Select a module from the dropdown above to load its form layout
+            </li>
+            <li>
+              Drag and drop the fields using the drag handle icon to reorder
+              fields within a section or move them between sections
+            </li>
+            <li>
+              Use the Field Designer to create/edit individual fields and
+              customize their settings
+            </li>
             <li>Use the Column Designer to manage database table columns</li>
           </Box>
           <Divider sx={{ my: 2 }} />
           <Typography variant="body2" color="textSecondary">
-            <strong>Note:</strong> Changes are saved automatically as you drag and drop fields.
+            <strong>Note:</strong> Changes are saved automatically as you drag
+            and drop fields.
           </Typography>
         </Paper>
       </Box>

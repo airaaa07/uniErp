@@ -93,7 +93,7 @@ const DashboardLayout: React.FC = () => {
             letterSpacing: '-0.02em',
           }}
         >
-          S University ERP
+          University ERP
         </Typography>
       </Toolbar>
       

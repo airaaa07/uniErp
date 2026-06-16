@@ -14,7 +14,7 @@ export default function PortalSelector() {
       {/* Header */}
       <div className="text-center mb-12 animate-fade-in">
         <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
-          S University Systems
+          University Systems
         </h1>
         <p className="mt-3 text-lg text-slate-400">
           Select a portal below to sign into your workspace
@@ -72,7 +72,7 @@ export default function PortalSelector() {
 
       {/* Footer */}
       <div className="mt-16 text-center text-xs text-slate-500">
-        <p>© 2026 S University. Powered by SlashCurate Technologies.</p>
+        <p>© 2026 University. Powered by SlashCurate Technologies.</p>
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ import { AuthProvider as ERPAuthProvider } from './apps/erp/contexts/AuthContext
 import ProtectedRouteERP from './apps/erp/components/ProtectedRoute';
 import DashboardLayoutERP from './apps/erp/components/DashboardLayout';
 import ERPLogin from './apps/erp/pages/Login';
+import AdmissionRegister from './apps/erp/pages/Register';
 
 // ================= THEMES =================
 const designerTheme = createTheme({
@@ -88,6 +89,7 @@ function App() {
                 <CssBaseline />
                 <Routes>
                   <Route path="login" element={<ERPLogin />} />
+                  <Route path="register" element={<AdmissionRegister />} />
                   <Route
                     path="student/dashboard"
                     element={

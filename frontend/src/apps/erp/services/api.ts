@@ -83,4 +83,9 @@ export const erpRecordAPI = {
   getModuleWithFields: (moduleKey: string) => api.get<ModuleWithFields>(`/modules/${moduleKey}/with-fields`),
 };
 
+export const publicAPI = {
+  getFormLayout: (moduleKey: string) => axios.get<FormLayout>(`${API_BASE_URL}/erp/public/modules/${moduleKey}/layout`),
+  createRecord: (data: RecordCreate) => axios.post<Record>(`${API_BASE_URL}/erp/public/records`, data),
+};
+
 export default api;

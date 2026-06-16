@@ -255,7 +255,7 @@ const Login: React.FC = () => {
           <Box sx={{ textAlign: 'center', mt: 4 }}>
             <Typography variant="body2" color="text.secondary">
               Don't have an account?{' '}
-              <Link to="/register" style={{ textDecoration: 'none', color: '#4f46e5', fontWeight: 600 }}>
+              <Link to="/designer/register" style={{ textDecoration: 'none', color: '#4f46e5', fontWeight: 600 }}>
                 Register here
               </Link>
             </Typography>

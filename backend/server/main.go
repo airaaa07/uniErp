@@ -78,6 +78,13 @@ func main() {
 		erpAuth.POST("/register", userHandler.CreateUser)
 	}
 
+	// ==================== ERP PUBLIC ROUTES ====================
+	erpPublic := r.Group("/api/erp/public")
+	{
+		erpPublic.GET("/modules/:moduleKey/layout", designerHandler.GetFormLayout)
+		erpPublic.POST("/records", erpRecordHandler.CreateRecord)
+	}
+
 	// ==================== DESIGNER AUTH ROUTES ====================
 	designerAuth := r.Group("/api/designer/auth")
 	{
@@ -106,6 +113,9 @@ func main() {
 		erpGroup.GET("/modules/:moduleKey/fields", designerHandler.GetFieldsByModule)
 	}
 
+	// ==================== PUBLIC DESIGNER ROUTES ====================
+	r.GET("/api/designer/roles", roleHandler.GetAllRoles)
+
 	// ==================== DESIGNER PROTECTED ROUTES ====================
 	designerGroup := r.Group("/api/designer")
 	designerGroup.Use(authMiddleware.AuthRequired())
@@ -133,7 +143,6 @@ func main() {
 
 		// Roles
 		designerGroup.POST("/roles", roleHandler.CreateRole)
-		designerGroup.GET("/roles", roleHandler.GetAllRoles)
 		designerGroup.GET("/roles/:id", roleHandler.GetRole)
 		designerGroup.PUT("/roles/:id", roleHandler.UpdateRole)
 		designerGroup.DELETE("/roles/:id", roleHandler.DeleteRole)
