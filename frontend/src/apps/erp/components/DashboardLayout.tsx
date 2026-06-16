@@ -58,6 +58,31 @@ const DashboardLayout: React.FC = () => {
     return lowerName.includes('admin') || lowerName.includes('super admin');
   }) || false;
 
+  const isCounsellor = user?.roles?.some((role: any) => {
+    const name = typeof role === 'string' ? role : role.role_name;
+    return name?.toLowerCase() === 'counsellor';
+  }) || false;
+
+  const isFinance = user?.roles?.some((role: any) => {
+    const name = typeof role === 'string' ? role : role.role_name;
+    return name?.toLowerCase() === 'finance controller';
+  }) || false;
+
+  const isOfficer = user?.roles?.some((role: any) => {
+    const name = typeof role === 'string' ? role : role.role_name;
+    return name?.toLowerCase() === 'admission officer';
+  }) || false;
+
+  const isRegistrar = user?.roles?.some((role: any) => {
+    const name = typeof role === 'string' ? role : role.role_name;
+    return name?.toLowerCase() === 'registrar';
+  }) || false;
+
+  const isCollegeAdmin = user?.roles?.some((role: any) => {
+    const name = typeof role === 'string' ? role : role.role_name;
+    return name?.toLowerCase() === 'college admin';
+  }) || false;
+
   useEffect(() => {
     if (user && !isStudent) {
       fetchModules();
@@ -115,6 +140,41 @@ const DashboardLayout: React.FC = () => {
     ? [
         { text: 'Student Dashboard', icon: <DashboardIcon />, path: '/student/dashboard' },
         { text: 'Register / New Inquiry', icon: <AssignmentIcon />, path: '/register' }
+      ]
+    : isCounsellor
+    ? [
+        { text: 'Counsellor Dashboard', icon: <DashboardIcon />, path: '/counsellor/dashboard' },
+        { text: 'Admissions & Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
+        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+      ]
+    : isFinance
+    ? [
+        { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance/dashboard' },
+        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
+        { text: 'Registration Fees', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/registration_fee' },
+        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+      ]
+    : isOfficer
+    ? [
+        { text: 'Admission Officer Dashboard', icon: <DashboardIcon />, path: '/officer/dashboard' },
+        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
+      ]
+    : isRegistrar
+    ? [
+        { text: 'Registrar Dashboard', icon: <DashboardIcon />, path: '/registrar/dashboard' },
+        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
+        { text: 'Hostel Allotments', icon: <BusinessIcon />, path: '/admin/dashboard/modules/hostel_allotment' },
+        { text: 'Transport Allotments', icon: <DashboardIcon />, path: '/admin/dashboard/modules/transport_allotment' },
+      ]
+    : isCollegeAdmin
+    ? [
+        { text: 'College Dashboard', icon: <DashboardIcon />, path: '/college/dashboard' },
+        { text: 'Colleges & Institutes', icon: <BusinessIcon />, path: '/admin/dashboard/modules/institute_master' },
+        { text: 'Courses Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
+        { text: 'Streams Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/streams_master' },
+        { text: 'Subjects Catalog', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/subject_master' },
       ]
     : [
         { text: 'Admin Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' },

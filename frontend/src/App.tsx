@@ -32,6 +32,11 @@ import AdmissionRegister from './apps/erp/pages/Register';
 import ERPUsers from './apps/erp/pages/admin/Users';
 import ModuleRecordManager from './apps/erp/pages/admin/ModuleRecordManager';
 import StudentDashboard from './apps/erp/pages/student/StudentDashboard';
+import CounsellorDashboard from './apps/erp/pages/counsellor/CounsellorDashboard';
+import FinanceDashboard from './apps/erp/pages/finance/FinanceDashboard';
+import OfficerDashboard from './apps/erp/pages/officer/OfficerDashboard';
+import RegistrarDashboard from './apps/erp/pages/registrar/RegistrarDashboard';
+import CollegeDashboard from './apps/erp/pages/college/CollegeDashboard';
 
 // ================= THEMES =================
 const designerTheme = createTheme({
@@ -102,6 +107,56 @@ function App() {
                     }
                   >
                     <Route index element={<StudentDashboard />} />
+                  </Route>
+                  <Route
+                    path="counsellor/dashboard"
+                    element={
+                      <ProtectedRouteERP>
+                        <DashboardLayoutERP />
+                      </ProtectedRouteERP>
+                    }
+                  >
+                    <Route index element={<CounsellorDashboard />} />
+                  </Route>
+                  <Route
+                    path="finance/dashboard"
+                    element={
+                      <ProtectedRouteERP>
+                        <DashboardLayoutERP />
+                      </ProtectedRouteERP>
+                    }
+                  >
+                    <Route index element={<FinanceDashboard />} />
+                  </Route>
+                  <Route
+                    path="officer/dashboard"
+                    element={
+                      <ProtectedRouteERP>
+                        <DashboardLayoutERP />
+                      </ProtectedRouteERP>
+                    }
+                  >
+                    <Route index element={<OfficerDashboard />} />
+                  </Route>
+                  <Route
+                    path="registrar/dashboard"
+                    element={
+                      <ProtectedRouteERP>
+                        <DashboardLayoutERP />
+                      </ProtectedRouteERP>
+                    }
+                  >
+                    <Route index element={<RegistrarDashboard />} />
+                  </Route>
+                  <Route
+                    path="college/dashboard"
+                    element={
+                      <ProtectedRouteERP>
+                        <DashboardLayoutERP />
+                      </ProtectedRouteERP>
+                    }
+                  >
+                    <Route index element={<CollegeDashboard />} />
                   </Route>
                   <Route
                     path="admin/dashboard"

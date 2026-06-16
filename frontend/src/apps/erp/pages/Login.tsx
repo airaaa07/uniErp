@@ -30,16 +30,30 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await login({
+      const loggedInUser = await login({
         username: formData.username,
         password: formData.password,
       });
       toast.success(`Welcome back!`);
-      // Since context login handles user state, wait and redirect
-      // Assuming context updates user synchronously or we just push to default, but here we can just use roleIdPaths if we know it
-      // Actually after await login(), the user state might not be immediately available in this render cycle if it's set in context
-      // Let's just navigate to a general dashboard or rely on a generic route redirect
-      navigate("/student/dashboard");
+      
+      const roles = loggedInUser?.roles || [];
+      const roleNames = roles.map((r: any) => (typeof r === 'string' ? r : r.role_name).toLowerCase());
+
+      if (roleNames.includes('student')) {
+        navigate("/student/dashboard");
+      } else if (roleNames.includes('counsellor')) {
+        navigate("/counsellor/dashboard");
+      } else if (roleNames.includes('finance controller')) {
+        navigate("/finance/dashboard");
+      } else if (roleNames.includes('admission officer')) {
+        navigate("/officer/dashboard");
+      } else if (roleNames.includes('registrar')) {
+        navigate("/registrar/dashboard");
+      } else if (roleNames.includes('college admin')) {
+        navigate("/college/dashboard");
+      } else {
+        navigate("/admin/dashboard");
+      }
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Invalid credentials");
     } finally {

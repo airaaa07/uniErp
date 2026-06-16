@@ -189,7 +189,7 @@ const FormLayoutDesigner: React.FC = () => {
   const [modules, setModules] = useState<Module[]>([]);
   const [selectedModule, setSelectedModule] = useState<Module | null>(null);
   const [columns, setColumns] = useState<ModuleColumn[]>([]);
-  const [layout, setLayout] = useState<FormLayout>({
+  const [layout, setLayout] = useState<FormLayout | null>({
     module_key: "",
     sections: [],
   });
