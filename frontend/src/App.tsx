@@ -29,6 +29,9 @@ import ProtectedRouteERP from './apps/erp/components/ProtectedRoute';
 import DashboardLayoutERP from './apps/erp/components/DashboardLayout';
 import ERPLogin from './apps/erp/pages/Login';
 import AdmissionRegister from './apps/erp/pages/Register';
+import ERPUsers from './apps/erp/pages/admin/Users';
+import ModuleRecordManager from './apps/erp/pages/admin/ModuleRecordManager';
+import StudentDashboard from './apps/erp/pages/student/StudentDashboard';
 
 // ================= THEMES =================
 const designerTheme = createTheme({
@@ -98,7 +101,7 @@ function App() {
                       </ProtectedRouteERP>
                     }
                   >
-                    <Route index element={<div className="p-6 text-xl font-semibold text-[#650C08]">Student Dashboard - Welcome! Module Forms Rendering coming soon.</div>} />
+                    <Route index element={<StudentDashboard />} />
                   </Route>
                   <Route
                     path="admin/dashboard"
@@ -108,7 +111,9 @@ function App() {
                       </ProtectedRouteERP>
                     }
                   >
-                    <Route index element={<div className="p-6 text-xl font-semibold text-[#650C08]">Admin Dashboard - Welcome! Dynamic Records coming soon.</div>} />
+                    <Route index element={<div className="p-6 text-xl font-semibold text-[#650C08]">Welcome to the University ERP Admissions Funnel.</div>} />
+                    <Route path="users" element={<ERPUsers />} />
+                    <Route path="modules/:moduleKey" element={<ModuleRecordManager />} />
                   </Route>
                   {/* Default fallback for ERP */}
                   <Route path="*" element={<Navigate to="/login" replace />} />

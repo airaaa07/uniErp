@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   AppBar,
@@ -20,8 +20,19 @@ import {
   Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Logout as LogoutIcon,
+  People as PeopleIcon,
+  Assignment as AssignmentIcon,
+  School as SchoolIcon,
+  Business as BusinessIcon,
+  AttachMoney as AttachMoneyIcon,
+  Badge as BadgeIcon,
+  SupportAgent as SupportAgentIcon,
+  Handshake as HandshakeIcon,
+  TableChart as TableChartIcon,
+  AppRegistration as AppRegistrationIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { erpRecordAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DRAWER_WIDTH = 260;
@@ -32,8 +43,8 @@ const DashboardLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [modules, setModules] = useState<any[]>([]);
 
-  // ERP user role determination
   const isStudent = user?.roles?.some((role: any) => {
     if (typeof role === 'string') {
       return role.toLowerCase() === 'student';
@@ -41,9 +52,77 @@ const DashboardLayout: React.FC = () => {
     return role.role_name?.toLowerCase() === 'student';
   }) || false;
 
-  const menuItems = isStudent 
-    ? [{ text: 'Student Dashboard', icon: <DashboardIcon />, path: '/student/dashboard' }]
-    : [{ text: 'Admin Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' }];
+  const isAdmin = user?.roles?.some((role: any) => {
+    const name = typeof role === 'string' ? role : role.role_name;
+    const lowerName = name?.toLowerCase() || '';
+    return lowerName.includes('admin') || lowerName.includes('super admin');
+  }) || false;
+
+  useEffect(() => {
+    if (user && !isStudent) {
+      fetchModules();
+    }
+  }, [user, isStudent]);
+
+  const fetchModules = async () => {
+    try {
+      const res = await erpRecordAPI.getAllModules();
+      setModules(res.data || []);
+    } catch (err) {
+      console.error("Failed to load sidebar modules:", err);
+    }
+  };
+
+  const getModuleMenuItem = (mod: any) => {
+    const key = mod.module_key;
+    let label = mod.module_name || key.replace(/_/g, ' ');
+    let icon = <TableChartIcon />;
+
+    if (key === 'inquiry_master') {
+      label = 'Admissions & Inquiries';
+      icon = <AssignmentIcon />;
+    } else if (key === 'course_master') {
+      label = 'Courses Catalog';
+      icon = <SchoolIcon />;
+    } else if (key === 'institute_master') {
+      label = 'Colleges & Institutes';
+      icon = <BusinessIcon />;
+    } else if (key === 'fee_master') {
+      label = 'Fee Structures';
+      icon = <AttachMoneyIcon />;
+    } else if (key === 'registration') {
+      label = 'Student Registrations';
+      icon = <AppRegistrationIcon />;
+    } else if (key === 'enrollment' || key === 'enrollment_master') {
+      label = 'Student Enrollments';
+      icon = <BadgeIcon />;
+    } else if (key === 'counsellor_master') {
+      label = 'Counsellors Directory';
+      icon = <SupportAgentIcon />;
+    } else if (key === 'counsellor_arrangement') {
+      label = 'Counsellor Allocations';
+      icon = <HandshakeIcon />;
+    }
+
+    return {
+      text: label,
+      icon: icon,
+      path: `/admin/dashboard/modules/${key}`,
+    };
+  };
+
+  const menuItems = isStudent
+    ? [
+        { text: 'Student Dashboard', icon: <DashboardIcon />, path: '/student/dashboard' },
+        { text: 'Register / New Inquiry', icon: <AssignmentIcon />, path: '/register' }
+      ]
+    : [
+        { text: 'Admin Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' },
+        ...modules.map(mod => getModuleMenuItem(mod)),
+        ...(isAdmin ? [
+          { text: 'User Administration', icon: <PeopleIcon />, path: '/admin/dashboard/users' }
+        ] : [])
+      ];
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -78,7 +157,7 @@ const DashboardLayout: React.FC = () => {
           }}
         >
           <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 800 }}>
-            S
+            U
           </Typography>
         </Box>
         <Typography
@@ -97,7 +176,7 @@ const DashboardLayout: React.FC = () => {
         </Typography>
       </Toolbar>
       
-      <List sx={{ px: 2, flexGrow: 1 }}>
+      <List sx={{ px: 2, flexGrow: 1, overflowY: 'auto' }}>
         {menuItems.map((item) => {
           const isSelected = location.pathname === item.path;
           return (
@@ -193,7 +272,9 @@ const DashboardLayout: React.FC = () => {
               {user?.username}
             </Typography>
             <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-              {isStudent ? 'Student' : 'Staff'}
+              {user?.roles
+                ? user.roles.map((role: any) => typeof role === 'string' ? role : role.role_name).join(', ')
+                : 'User'}
             </Typography>
           </Box>
         </Box>

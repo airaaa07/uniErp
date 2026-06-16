@@ -13,6 +13,7 @@ import (
 	erpservices "backend/services/erp"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 )
 
 func main() {
@@ -81,8 +82,58 @@ func main() {
 	// ==================== ERP PUBLIC ROUTES ====================
 	erpPublic := r.Group("/api/erp/public")
 	{
-		erpPublic.GET("/modules/:moduleKey/layout", designerHandler.GetFormLayout)
-		erpPublic.POST("/records", erpRecordHandler.CreateRecord)
+		// Safe verification to prevent public access or submission to other metadata modules
+		publicModules := map[string]bool{
+			"inquiry_master":    true,
+			"course_master":     true,
+			"stream_master":     true,
+			"streams_master":    true,
+			"counsellor_master": true,
+			"institute_master":  true,
+			"fee_master":        true,
+			"registration":      true,
+			"enrollment":        true,
+			"inquiry_status":    true,
+		}
+
+		erpPublic.GET("/modules", designerHandler.GetAllModules)
+
+		erpPublic.GET("/modules/:moduleKey/layout", func(c *gin.Context) {
+			moduleKey := c.Param("moduleKey")
+			if !publicModules[moduleKey] {
+				c.JSON(403, gin.H{"error": "Access denied. Module layout is not public."})
+				c.Abort()
+				return
+			}
+			designerHandler.GetFormLayout(c)
+		})
+
+		erpPublic.GET("/modules/:moduleKey/records", func(c *gin.Context) {
+			moduleKey := c.Param("moduleKey")
+			if !publicModules[moduleKey] {
+				c.JSON(403, gin.H{"error": "Access denied. Private module records access not allowed."})
+				c.Abort()
+				return
+			}
+			erpRecordHandler.GetRecordsByModule(c)
+		})
+
+		erpPublic.POST("/records", func(c *gin.Context) {
+			var temp struct {
+				ModuleKey string `json:"module_key" binding:"required"`
+			}
+			if err := c.ShouldBindBodyWith(&temp, binding.JSON); err != nil {
+				c.JSON(400, gin.H{"error": "Invalid request body"})
+				c.Abort()
+				return
+			}
+			if !publicModules[temp.ModuleKey] {
+				c.JSON(403, gin.H{"error": "Access denied. Public submissions to this module are not allowed."})
+				c.Abort()
+				return
+			}
+			erpRecordHandler.CreateRecord(c)
+		})
 	}
 
 	// ==================== DESIGNER AUTH ROUTES ====================
@@ -111,6 +162,23 @@ func main() {
 		erpGroup.GET("/modules/:moduleKey/layout", designerHandler.GetFormLayout)
 		erpGroup.GET("/modules/:moduleKey/with-fields", designerHandler.GetModuleWithFields)
 		erpGroup.GET("/modules/:moduleKey/fields", designerHandler.GetFieldsByModule)
+		erpGroup.GET("/modules", designerHandler.GetAllModules)
+
+		// ERP Admin User Management
+		erpAdmin := erpGroup.Group("")
+		erpAdmin.Use(middleware.RequireERPAdminRole(db))
+		{
+			erpAdmin.POST("/users", userHandler.CreateUser)
+			erpAdmin.GET("/users", userHandler.GetAllUsers)
+			erpAdmin.GET("/users/:id", userHandler.GetUser)
+			erpAdmin.PUT("/users/:id", userHandler.UpdateUser)
+			erpAdmin.DELETE("/users/:id", userHandler.DeleteUser)
+			erpAdmin.PATCH("/users/:id/disable", userHandler.ToggleUserStatus)
+			erpAdmin.POST("/users/:id/roles", userHandler.AssignRole)
+			erpAdmin.DELETE("/users/:id/roles", userHandler.RemoveRole)
+
+			erpAdmin.GET("/roles", roleHandler.GetAllRoles)
+		}
 	}
 
 	// ==================== PUBLIC DESIGNER ROUTES ====================
@@ -189,6 +257,10 @@ func main() {
 		designerGroup.GET("/modules/:moduleKey/columns", designerHandler.GetModuleColumnsByModule)
 		designerGroup.PUT("/module-columns/:columnId", designerHandler.UpdateModuleColumn)
 		designerGroup.DELETE("/module-columns/:columnId", designerHandler.DeleteModuleColumn)
+
+		// Field Group Routes (system-only module sources for cross-module field linking)
+		designerGroup.GET("/field-group-sources", designerHandler.GetFieldGroupModules)
+		designerGroup.GET("/modules/:moduleKey/field-group-columns", designerHandler.GetFieldGroupColumns)
 	}
 
 	port := os.Getenv("PORT")

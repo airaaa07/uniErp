@@ -3,6 +3,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { ArrowLeft, Sparkles, CheckCircle, Info, RefreshCw, HelpCircle, FileText, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { publicAPI } from "../services/api";
+import { fetchReferenceOptions } from "../utils/referenceLoader";
 import type { Field, FormLayout } from "../types";
 
 export default function Register() {
@@ -18,6 +19,7 @@ export default function Register() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [referenceOptions, setReferenceOptions] = useState<Record<string, { value: string; label: string }[]>>({});
 
   useEffect(() => {
     loadLayout();
@@ -52,6 +54,28 @@ export default function Register() {
         }
         setFormData(initialData);
       }
+
+      // Load reference dropdown options publicly
+      try {
+        const modulesRes = await publicAPI.getAllModules();
+        const modulesList = modulesRes.data || [];
+        const refOpts: Record<string, { value: string; label: string }[]> = {};
+
+        for (const section of response.data.sections || []) {
+          for (const field of section.fields || []) {
+            if (["select", "multiselect", "radio"].includes(field.field_type)) {
+              const opts = await fetchReferenceOptions(field.field_key, modulesList, false); // false = public API
+              if (opts) {
+                refOpts[field.field_key] = opts;
+              }
+            }
+          }
+        }
+        setReferenceOptions(refOpts);
+      } catch (refErr) {
+        console.error("Failed to load reference options publicly:", refErr);
+      }
+
     } catch (err: any) {
       console.error("Error loading layout:", err);
       setLayout(null);
@@ -187,6 +211,7 @@ export default function Register() {
     const value = formData[field.field_key] ?? "";
     const hasError = !!errors[field.field_key];
     const isPii = field.is_pii;
+    const options = referenceOptions[field.field_key] || field.dropdown_options || [];
 
     const baseInputStyle = `w-full rounded-lg border px-4 py-2.5 outline-none transition duration-150 focus:ring-2 focus:ring-[#650C08] focus:border-transparent ${
       hasError ? "border-rose-400 bg-rose-50/30" : isPii ? "border-amber-200 bg-amber-50/20" : "border-gray-300 hover:border-gray-400"
@@ -228,13 +253,11 @@ export default function Register() {
             className={baseInputStyle}
           >
             <option value="">Select an option</option>
-            {field.dropdown_options &&
-              Array.isArray(field.dropdown_options) &&
-              field.dropdown_options.map((opt: any, idx: number) => (
-                <option key={idx} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
+            {options.map((opt: any, idx: number) => (
+              <option key={idx} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
           </select>
         );
 
@@ -250,35 +273,31 @@ export default function Register() {
             disabled={field.is_read_only}
             className={`${baseInputStyle} h-28`}
           >
-            {field.dropdown_options &&
-              Array.isArray(field.dropdown_options) &&
-              field.dropdown_options.map((opt: any, idx: number) => (
-                <option key={idx} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
+            {options.map((opt: any, idx: number) => (
+              <option key={idx} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
           </select>
         );
 
       case "radio":
         return (
           <div className="flex flex-col gap-2 mt-1">
-            {field.dropdown_options &&
-              Array.isArray(field.dropdown_options) &&
-              field.dropdown_options.map((opt: any, idx: number) => (
-                <label key={idx} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                  <input
-                    type="radio"
-                    name={field.field_key}
-                    value={opt.value}
-                    checked={value === opt.value}
-                    onChange={() => handleFieldChange(field.field_key, opt.value)}
-                    disabled={field.is_read_only}
-                    className="text-[#650C08] focus:ring-[#650C08]"
-                  />
-                  {opt.label}
-                </label>
-              ))}
+            {options.map((opt: any, idx: number) => (
+              <label key={idx} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="radio"
+                  name={field.field_key}
+                  value={opt.value}
+                  checked={value === opt.value}
+                  onChange={() => handleFieldChange(field.field_key, opt.value)}
+                  disabled={field.is_read_only}
+                  className="text-[#650C08] focus:ring-[#650C08]"
+                />
+                {opt.label}
+              </label>
+            ))}
           </div>
         );
 
@@ -385,7 +404,7 @@ export default function Register() {
                 Back to Login
               </Link>
               <span className="bg-[#650C08]/10 text-[#650C08] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-                Module: {moduleKey}
+                Module: {layout?.module_name || moduleKey}
               </span>
             </div>
 
@@ -407,7 +426,7 @@ export default function Register() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
                   <button
-                    onClick={handleReset}
+                     onClick={handleReset}
                     className="px-6 py-2.5 rounded-lg border border-gray-300 font-medium text-sm text-gray-700 hover:bg-gray-50 transition duration-150"
                   >
                     Submit Another Inquiry

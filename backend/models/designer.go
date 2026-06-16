@@ -9,6 +9,7 @@ type Module struct {
 	ModuleName  string    `db:"module_name" json:"module_name"`
 	Description string    `db:"description" json:"description"`
 	IsActive    bool      `db:"is_active" json:"is_active"`
+	IsSystem    bool      `db:"is_system" json:"is_system"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
 }
 
@@ -35,11 +36,11 @@ type Field struct {
 	FieldType      string    `db:"field_type" json:"field_type"`
 	FieldGroupID   *int      `db:"field_group_id" json:"field_group_id"`
 	FieldGroupName string    `db:"field_group_name" json:"field_group_name"`
-	Placeholder    string    `db:"placeholder" json:"placeholder"`
-	HelpTooltip    string    `db:"help_tooltip" json:"help_tooltip"`
-	DefaultValue   string    `db:"default_value" json:"default_value"`
-	MinValue       string    `db:"min_value" json:"min_value"`
-	MaxValue       string    `db:"max_value" json:"max_value"`
+	Placeholder    *string    `db:"placeholder" json:"placeholder"`
+	HelpTooltip    *string    `db:"help_tooltip" json:"help_tooltip"`
+	DefaultValue   *string    `db:"default_value" json:"default_value"`
+	MinValue       *string    `db:"min_value" json:"min_value"`
+	MaxValue       *string    `db:"max_value" json:"max_value"`
 	SystemField    bool      `db:"system_field" json:"system_field"`
 	IsVisible      bool      `db:"is_visible" json:"is_visible"`
 	IsMandatory    bool      `db:"is_mandatory" json:"is_mandatory"`
@@ -55,45 +56,52 @@ type Field struct {
 
 // FieldCreate represents the request to create a new field
 type FieldCreate struct {
-	ModuleKey      string `json:"module_key" binding:"required"`
-	Label          string `json:"label" binding:"required"`
-	FieldKey       string `json:"field_key" binding:"required"`
-	FieldType      string `json:"field_type" binding:"required"`
-	FieldGroupName string `json:"field_group_name"`
-	Placeholder    string `json:"placeholder"`
-	HelpTooltip    string `json:"help_tooltip"`
-	DefaultValue   string `json:"default_value"`
-	MinValue       string `json:"min_value"`
-	MaxValue       string `json:"max_value"`
-	SystemField    bool   `json:"system_field"`
-	IsVisible      bool   `json:"is_visible"`
-	IsMandatory    bool   `json:"is_mandatory"`
-	IsPii          bool   `json:"is_pii"`
-	IsAudited      bool   `json:"is_audited"`
-	IsSearchable   bool   `json:"is_searchable"`
-	IsExportable   bool   `json:"is_exportable"`
-	SortOrder      int16  `json:"sort_order"`
+	ModuleKey           string  `json:"module_key" binding:"required"`
+	Label               string  `json:"label" binding:"required"`
+	FieldKey            string  `json:"field_key" binding:"required"`
+	FieldType           string  `json:"field_type" binding:"required"`
+	// FieldGroupModuleKey: the module key of the table this field logically groups under (e.g. "course_master").
+	// Backend auto-computes field_group_name = "<owning_module>__<this_key>" and locks it.
+	FieldGroupModuleKey *string `json:"field_group_module_key"`
+	// FieldGroupColumnID: column_id (from module_columns) of the PK/UNIQUE column used as the join key.
+	FieldGroupColumnID  *int    `json:"field_group_column_id"`
+	Placeholder         string  `json:"placeholder"`
+	HelpTooltip         string  `json:"help_tooltip"`
+	DefaultValue        string  `json:"default_value"`
+	MinValue            string  `json:"min_value"`
+	MaxValue            string  `json:"max_value"`
+	SystemField         bool    `json:"system_field"`
+	IsVisible           bool    `json:"is_visible"`
+	IsMandatory         bool    `json:"is_mandatory"`
+	IsPii               bool    `json:"is_pii"`
+	IsAudited           bool    `json:"is_audited"`
+	IsSearchable        bool    `json:"is_searchable"`
+	IsExportable        bool    `json:"is_exportable"`
+	SortOrder           int16   `json:"sort_order"`
 }
 
 // FieldUpdate represents the request to update a field
 type FieldUpdate struct {
-	Label          *string `json:"label"`
-	FieldKey       *string `json:"field_key"`
-	FieldType      *string `json:"field_type"`
-	FieldGroupName *string `json:"field_group_name"`
-	Placeholder    *string `json:"placeholder"`
-	HelpTooltip    *string `json:"help_tooltip"`
-	DefaultValue   *string `json:"default_value"`
-	MinValue       *string `json:"min_value"`
-	MaxValue       *string `json:"max_value"`
-	SystemField    *bool   `json:"system_field"`
-	IsVisible      *bool   `json:"is_visible"`
-	IsMandatory    *bool   `json:"is_mandatory"`
-	IsPii          *bool   `json:"is_pii"`
-	IsAudited      *bool   `json:"is_audited"`
-	IsSearchable   *bool   `json:"is_searchable"`
-	IsExportable   *bool   `json:"is_exportable"`
-	SortOrder      *int16  `json:"sort_order"`
+	Label               *string `json:"label"`
+	FieldKey            *string `json:"field_key"`
+	FieldType           *string `json:"field_type"`
+	// FieldGroupModuleKey: pass to change which module this field groups under.
+	// Backend recomputes field_group_name automatically.
+	FieldGroupModuleKey *string `json:"field_group_module_key"`
+	FieldGroupColumnID  *int    `json:"field_group_column_id"`
+	Placeholder         *string `json:"placeholder"`
+	HelpTooltip         *string `json:"help_tooltip"`
+	DefaultValue        *string `json:"default_value"`
+	MinValue            *string `json:"min_value"`
+	MaxValue            *string `json:"max_value"`
+	SystemField         *bool   `json:"system_field"`
+	IsVisible           *bool   `json:"is_visible"`
+	IsMandatory         *bool   `json:"is_mandatory"`
+	IsPii               *bool   `json:"is_pii"`
+	IsAudited           *bool   `json:"is_audited"`
+	IsSearchable        *bool   `json:"is_searchable"`
+	IsExportable        *bool   `json:"is_exportable"`
+	SortOrder           *int16  `json:"sort_order"`
 }
 
 // Record represents a metadata record (form submission)
@@ -131,8 +139,9 @@ type Section struct {
 
 // FormLayout represents the complete form layout with sections
 type FormLayout struct {
-	ModuleKey string    `json:"module_key"`
-	Sections  []Section `json:"sections"`
+	ModuleKey  string    `json:"module_key"`
+	ModuleName string    `json:"module_name"`
+	Sections   []Section `json:"sections"`
 }
 
 // DropdownOption represents a dropdown option

@@ -175,16 +175,22 @@ func (s *DesignerService) GetModuleWithFields(moduleKey string) (*models.ModuleW
 func (s *DesignerService) CreateField(req models.FieldCreate, createdBy int64) (*models.Field, error) {
 	var fieldID int64
 
+	// Auto-calculate field_group_name if field_group_module_key is provided
+	fieldGroupName := ""
+	if req.FieldGroupModuleKey != nil && *req.FieldGroupModuleKey != "" {
+		fieldGroupName = fmt.Sprintf("%s__%s", req.ModuleKey, *req.FieldGroupModuleKey)
+	}
+
 	err := s.db.QueryRow(
 		`INSERT INTO fields (
-			module_key, label, field_key, field_type, field_group_name, placeholder, help_tooltip, default_value,
+			module_key, label, field_key, field_type, field_group_name, field_group_id, placeholder, help_tooltip, default_value,
 			min_value, max_value, system_field,
 			is_visible, is_mandatory, is_pii, is_audited, is_searchable, is_exportable,
 			sort_order, created_by
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 		RETURNING field_id`,
-		req.ModuleKey, req.Label, req.FieldKey, req.FieldType, req.FieldGroupName, req.Placeholder, req.HelpTooltip, req.DefaultValue,
+		req.ModuleKey, req.Label, req.FieldKey, req.FieldType, fieldGroupName, req.FieldGroupColumnID, req.Placeholder, req.HelpTooltip, req.DefaultValue,
 		req.MinValue, req.MaxValue, req.SystemField,
 		req.IsVisible, req.IsMandatory, req.IsPii, req.IsAudited, req.IsSearchable, req.IsExportable,
 		req.SortOrder, createdBy,
@@ -224,6 +230,12 @@ func (s *DesignerService) GetFieldsByModule(moduleKey string) ([]models.Field, e
 	return fields, nil
 }
 func (s *DesignerService) UpdateField(fieldID int64, req models.FieldUpdate) (*models.Field, error) {
+	// Fetch existing field to get module_key for field_group_name calculation
+	existingField, err := s.GetFieldByID(fieldID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch existing field: %w", err)
+	}
+
 	query := "UPDATE fields SET updated_at = NOW()"
 	args := []interface{}{}
 
@@ -243,9 +255,21 @@ func (s *DesignerService) UpdateField(fieldID int64, req models.FieldUpdate) (*m
 		args = append(args, *req.FieldType)
 	}
 
-	if req.FieldGroupName != nil {
+	// Handle field_group_name auto-calculation when field_group_module_key changes
+	if req.FieldGroupModuleKey != nil {
 		query += fmt.Sprintf(", field_group_name = $%d", len(args)+1)
-		args = append(args, *req.FieldGroupName)
+		if *req.FieldGroupModuleKey != "" {
+			fieldGroupName := fmt.Sprintf("%s__%s", existingField.ModuleKey, *req.FieldGroupModuleKey)
+			args = append(args, fieldGroupName)
+		} else {
+			args = append(args, "")
+		}
+	}
+
+	// Handle field_group_id
+	if req.FieldGroupColumnID != nil {
+		query += fmt.Sprintf(", field_group_id = $%d", len(args)+1)
+		args = append(args, *req.FieldGroupColumnID)
 	}
 
 	if req.Placeholder != nil {
@@ -325,7 +349,7 @@ func (s *DesignerService) UpdateField(fieldID int64, req models.FieldUpdate) (*m
 	log.Printf("QUERY: %s", query)
 	log.Printf("ARGS: %#v", args)
 
-	_, err := s.db.Exec(query, args...)
+	_, err = s.db.Exec(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("update field failed: %w", err)
 	}
@@ -351,6 +375,13 @@ func (s *DesignerService) GetFormLayout(moduleKey string) (*models.FormLayout, e
 		return nil, err
 	}
 
+	// Get module name
+	moduleName := moduleKey
+	module, err := s.GetModule(moduleKey)
+	if err == nil {
+		moduleName = module.ModuleName
+	}
+
 	// Group fields by section
 	sectionsMap := make(map[string][]models.Field)
 	for _, field := range fields {
@@ -371,8 +402,9 @@ func (s *DesignerService) GetFormLayout(moduleKey string) (*models.FormLayout, e
 	}
 
 	return &models.FormLayout{
-		ModuleKey: moduleKey,
-		Sections:  sections,
+		ModuleKey:  moduleKey,
+		ModuleName: moduleName,
+		Sections:   sections,
 	}, nil
 }
 
@@ -676,4 +708,36 @@ func (s *DesignerService) UpdateModuleColumn(columnID int64, req models.ModuleCo
 func (s *DesignerService) DeleteModuleColumn(columnID int64) error {
 	_, err := s.db.Exec("DELETE FROM module_columns WHERE column_id = $1", columnID)
 	return err
+}
+
+func (s *DesignerService) GetFieldGroupModules(exclude string) ([]models.Module, error) {
+	var modules []models.Module
+	var err error
+	if exclude != "" {
+		err = s.db.Select(&modules, "SELECT * FROM modules WHERE is_system = true AND module_key != $1 ORDER BY module_name ASC", exclude)
+	} else {
+		err = s.db.Select(&modules, "SELECT * FROM modules WHERE is_system = true ORDER BY module_name ASC")
+	}
+	if err != nil {
+		return nil, err
+	}
+	return modules, nil
+}
+
+func (s *DesignerService) GetFieldGroupColumns(moduleKey string) ([]models.ModuleColumn, error) {
+	module, err := s.GetModule(moduleKey)
+	if err != nil {
+		return nil, err
+	}
+
+	var columns []models.ModuleColumn
+	err = s.db.Select(&columns, `
+		SELECT * FROM module_columns 
+		WHERE module_id = $1 AND (is_primary_key = true OR is_unique = true)
+		ORDER BY column_name ASC
+	`, module.ModuleID)
+	if err != nil {
+		return nil, err
+	}
+	return columns, nil
 }

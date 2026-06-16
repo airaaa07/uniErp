@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type {
   User,
+  Role,
   LoginRequest,
   LoginResponse,
   ChangePasswordRequest,
@@ -81,11 +82,30 @@ export const erpRecordAPI = {
   // Module Layout schema operations (Read-only for rendering dynamic forms)
   getFormLayout: (moduleKey: string) => api.get<FormLayout>(`/modules/${moduleKey}/layout`),
   getModuleWithFields: (moduleKey: string) => api.get<ModuleWithFields>(`/modules/${moduleKey}/with-fields`),
+  getAllModules: () => api.get<any[]>('/modules'),
 };
+
+export const userAPI = {
+  getAll: (search?: string) => api.get<User[]>(`/users${search ? `?search=${search}` : ''}`),
+  getById: (id: number) => api.get<User>(`/users/${id}`),
+  create: (data: any) => api.post<User>('/users', data),
+  update: (id: number, data: any) => api.put<User>(`/users/${id}`, data),
+  delete: (id: number) => api.delete(`/users/${id}`),
+  disable: (id: number) => api.patch(`/users/${id}/disable`),
+  assignRole: (id: number, roleId: number) => api.post(`/users/${id}/roles`, { role_id: roleId }),
+  removeRole: (id: number, roleId: number) => api.delete(`/users/${id}/roles`, { data: { role_id: roleId } }),
+};
+
+export const roleAPI = {
+  getAll: () => api.get<Role[]>('/roles'),
+};
+
 
 export const publicAPI = {
   getFormLayout: (moduleKey: string) => axios.get<FormLayout>(`${API_BASE_URL}/erp/public/modules/${moduleKey}/layout`),
   createRecord: (data: RecordCreate) => axios.post<Record>(`${API_BASE_URL}/erp/public/records`, data),
+  getAllModules: () => axios.get<any[]>(`${API_BASE_URL}/erp/public/modules`),
+  getRecordsByModule: (moduleKey: string) => axios.get<Record[]>(`${API_BASE_URL}/erp/public/modules/${moduleKey}/records`),
 };
 
 export default api;

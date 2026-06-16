@@ -299,6 +299,29 @@ func (h *DesignerHandler) GetReferenceColumns(c *gin.Context) {
 		allowed,
 	)
 }
+
+// GetFieldGroupModules returns system-seeded modules excluding the current one.
+// Used in the Field Designer field_group picker — only shows real data-model tables.
+func (h *DesignerHandler) GetFieldGroupModules(c *gin.Context) {
+	exclude := c.Query("exclude")
+	modules, err := h.designerService.GetFieldGroupModules(exclude)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, modules)
+}
+
+// GetFieldGroupColumns returns PK/UNIQUE columns of a module — candidates for the join key.
+func (h *DesignerHandler) GetFieldGroupColumns(c *gin.Context) {
+	moduleKey := c.Param("moduleKey")
+	columns, err := h.designerService.GetFieldGroupColumns(moduleKey)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "module not found or has no key columns"})
+		return
+	}
+	c.JSON(http.StatusOK, columns)
+}
 func (h *DesignerHandler) GetModuleColumn(c *gin.Context) {
 	columnID := c.Param("columnId")
 	var columnIDInt int64

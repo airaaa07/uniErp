@@ -155,6 +155,15 @@ export const designerAPI = {
   getModuleColumnsByModule: (moduleKey: string) => api.get<ModuleColumn[]>(`/modules/${moduleKey}/columns`),
   updateModuleColumn: (columnId: number, data: ModuleColumnUpdate) => api.put<ModuleColumn>(`/module-columns/${columnId}`, data),
   deleteModuleColumn: (columnId: number) => api.delete(`/module-columns/${columnId}`),
+
+  // Field Group Operations
+  // Returns system-seeded modules (the real data-model tables) that can be used as field group sources.
+  // Pass excludeModuleKey to filter out the current module.
+  getFieldGroupSources: (excludeModuleKey?: string) =>
+    api.get<import('../types').Module[]>(`/field-group-sources${excludeModuleKey ? `?exclude=${excludeModuleKey}` : ''}`),
+  // Returns PK/UNIQUE columns of a module — the valid join-key candidates.
+  getFieldGroupColumns: (moduleKey: string) =>
+    api.get<ModuleColumn[]>(`/modules/${moduleKey}/field-group-columns`),
 };
 
 export default api;

@@ -182,6 +182,7 @@ export interface Section {
 
 export interface FormLayout {
   module_key: string;
+  module_name?: string;
   sections: Section[];
 }
 

@@ -117,6 +117,8 @@ export interface FieldCreate {
   field_key: string;
   field_type: string;
   field_group_name?: string;
+  field_group_module_key?: string;
+  field_group_column_id?: number;
   placeholder?: string;
   help_tooltip?: string;
   default_value?: string;
@@ -134,8 +136,11 @@ export interface FieldCreate {
 
 export interface FieldUpdate {
   label?: string;
+  field_key?: string;
   field_type?: string;
   field_group_name?: string;
+  field_group_module_key?: string;
+  field_group_column_id?: number;
   placeholder?: string;
   help_tooltip?: string;
   default_value?: string;
@@ -182,6 +187,7 @@ export interface Section {
 
 export interface FormLayout {
   module_key: string;
+  module_name?: string;
   sections: Section[];
 }
 
@@ -191,18 +197,18 @@ export interface DropdownOption {
   display_order: number;
 }
 
-export type FieldType = 
-  | 'text' 
-  | 'number' 
-  | 'date' 
-  | 'datetime' 
-  | 'boolean' 
-  | 'select' 
-  | 'multiselect' 
-  | 'radio' 
-  | 'textarea' 
-  | 'email' 
-  | 'phone' 
+export type FieldType =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'datetime'
+  | 'boolean'
+  | 'select'
+  | 'multiselect'
+  | 'radio'
+  | 'textarea'
+  | 'email'
+  | 'phone'
   | 'url';
 
 export type DbType =

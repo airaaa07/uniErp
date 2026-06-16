@@ -25,16 +25,26 @@ import {
 } from "@mui/icons-material";
 
 import { erpRecordAPI } from "../services/api";
-import type { Field, FormLayout, DropdownOption } from "../types";
+import { fetchReferenceOptions } from "../utils/referenceLoader";
+import type { Field, FormLayout } from "../types";
+
+interface SimpleOption {
+  value: string;
+  label: string;
+}
 
 interface DynamicFormRendererProps {
   moduleKey: string;
+  recordId?: string;
+  initialData?: Record<string, any>;
   onSuccess?: () => void;
   onCancel?: () => void;
 }
 
 const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
   moduleKey,
+  recordId,
+  initialData,
   onSuccess,
   onCancel,
 }) => {
@@ -44,10 +54,11 @@ const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [referenceOptions, setReferenceOptions] = useState<Record<string, SimpleOption[]>>({});
 
   useEffect(() => {
     loadLayout();
-  }, [moduleKey]);
+  }, [moduleKey, recordId]);
 
   const loadLayout = async () => {
     try {
@@ -56,16 +67,40 @@ const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
       const response = await erpRecordAPI.getFormLayout(moduleKey);
       setLayout(response.data);
       
-      // Initialize form data with default values
-      const initialData: Record<string, any> = {};
-      response.data.sections.forEach((section: any) => {
-        section.fields.forEach((field: any) => {
-          if (field.default_value) {
-            initialData[field.field_key] = field.default_value;
-          }
+      // Initialize form data with initialData or default values
+      const initial: Record<string, any> = { ...initialData };
+      if (!initialData) {
+        response.data.sections.forEach((section: any) => {
+          section.fields.forEach((field: any) => {
+            if (field.default_value) {
+              initial[field.field_key] = field.default_value;
+            }
+          });
         });
-      });
-      setFormData(initialData);
+      }
+      setFormData(initial);
+
+      // Load reference option lists from corresponding modules
+      try {
+        const modulesRes = await erpRecordAPI.getAllModules();
+        const modulesList = modulesRes.data || [];
+        const refOpts: Record<string, SimpleOption[]> = {};
+        
+        for (const section of response.data.sections) {
+          for (const field of section.fields) {
+            if (["select", "multiselect", "radio"].includes(field.field_type)) {
+              const opts = await fetchReferenceOptions(field.field_key, modulesList, true);
+              if (opts) {
+                refOpts[field.field_key] = opts.map(o => ({ value: o.value, label: o.label }));
+              }
+            }
+          }
+        }
+        setReferenceOptions(refOpts);
+      } catch (refErr) {
+        console.error("Failed to load reference options:", refErr);
+      }
+
     } catch (error) {
       console.error("Error loading layout:", error);
       setError("Failed to load form. Please check if the module exists and is published.");
@@ -135,13 +170,21 @@ const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
       setSubmitting(true);
       setError(null);
       
-      await erpRecordAPI.createRecord({
-        module_key: moduleKey,
-        data: formData,
-      });
+      if (recordId) {
+        await erpRecordAPI.updateRecord(recordId, {
+          data: formData,
+        });
+      } else {
+        await erpRecordAPI.createRecord({
+          module_key: moduleKey,
+          data: formData,
+        });
+      }
       
       setSuccess(true);
-      setFormData({});
+      if (!recordId) {
+        setFormData({});
+      }
       
       if (onSuccess) {
         onSuccess();
@@ -158,8 +201,9 @@ const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
   };
 
   const renderField = (field: Field) => {
-    const value = formData[field.field_key] || field.default_value || "";
+    const value = formData[field.field_key] ?? field.default_value ?? "";
     const error = field.is_mandatory && !value && value !== false;
+    const options = referenceOptions[field.field_key] || field.dropdown_options || [];
 
     switch (field.field_type) {
       case "text":
@@ -272,7 +316,6 @@ const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
 
       case "select":
       case "radio":
-        const options = field.dropdown_options || [];
         if (field.field_type === "select") {
           return (
             <FormControl fullWidth required={field.is_mandatory} error={error} disabled={field.is_read_only}>
@@ -283,7 +326,7 @@ const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
                 label={field.label}
               >
                 <MenuItem value="">Select an option</MenuItem>
-                {options.map((option: DropdownOption, idx: number) => (
+                {options.map((option: SimpleOption, idx: number) => (
                   <MenuItem key={idx} value={option.value}>
                     {option.label}
                   </MenuItem>
@@ -301,7 +344,7 @@ const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
                 value={value}
                 onChange={(e) => handleFieldChange(field.field_key, e.target.value)}
               >
-                {options.map((option: DropdownOption, idx: number) => (
+                {options.map((option: SimpleOption, idx: number) => (
                   <FormControlLabel
                     key={idx}
                     value={option.value}
@@ -315,17 +358,16 @@ const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
         }
 
       case "multiselect":
-        const multiOptions = field.dropdown_options || [];
         return (
           <FormControl fullWidth required={field.is_mandatory} error={error} disabled={field.is_read_only}>
             <InputLabel>{field.label}</InputLabel>
             <Select
               multiple
-              value={value || []}
+              value={Array.isArray(value) ? value : value ? [value] : []}
               onChange={(e) => handleFieldChange(field.field_key, e.target.value)}
               label={field.label}
             >
-              {multiOptions.map((option: DropdownOption, idx: number) => (
+              {options.map((option: SimpleOption, idx: number) => (
                 <MenuItem key={idx} value={option.value}>
                   {option.label}
                 </MenuItem>
@@ -353,15 +395,15 @@ const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 400 }}>
-        <CircularProgress />
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 250 }}>
+        <CircularProgress size={36} sx={{ color: "#650C08" }} />
       </Box>
     );
   }
 
   if (error && !layout) {
     return (
-      <Alert severity="error" sx={{ mt: 2 }}>
+      <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>
         {error}
       </Alert>
     );
@@ -377,65 +419,67 @@ const DynamicFormRenderer: React.FC<DynamicFormRendererProps> = ({
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={onCancel}
-          sx={{ mb: 2 }}
+          sx={{ mb: 2.5, color: "#650C08" }}
         >
           Back
         </Button>
       )}
 
-      <Paper>
-        <Box sx={{ p: 3 }}>
-          <Typography variant="h5" sx={{ mb: 2 }}>
-            {layout.sections[0]?.fields[0]?.field_group_name || moduleKey}
+      <Paper sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "0 4px 12px rgba(0,0,0,0.03)", overflow: "hidden" }}>
+        <Box sx={{ p: 4 }}>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: "#650C08", mb: 1 }}>
+            {layout.sections[0]?.fields[0]?.field_group_name || layout.module_name || moduleKey}
           </Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-            Please fill out the form below. Fields marked with * are required.
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 4 }}>
+            Please fill out the form fields. Fields marked with * are mandatory.
           </Typography>
 
           {success && (
-            <Alert severity="success" sx={{ mb: 3 }}>
+            <Alert severity="success" sx={{ mb: 3, borderRadius: 2 }}>
               Form submitted successfully!
             </Alert>
           )}
 
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
+            <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
               {error}
             </Alert>
           )}
 
           {layout.sections.map((section, sectionIndex) => (
             <Box key={sectionIndex} sx={{ mb: 4 }}>
-              <Typography variant="h6" sx={{ mb: 2, color: "primary.main" }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 700, color: "#650C08" }}>
                 {section.name}
               </Typography>
               <Grid container spacing={3}>
                 {section.fields
                   .filter(field => field.is_visible)
                   .map((field) => (
-                    <Grid size={{ xs: 12, sm: field.field_type === "textarea" ? 12 : 6 }} key={field.field_id}>
+                    <Grid size={field.field_type === "textarea" ? 12 : 6} key={field.field_id}>
                       {renderField(field)}
                     </Grid>
                   ))}
               </Grid>
-              {sectionIndex < layout.sections.length - 1 && <Divider sx={{ mt: 3 }} />}
+              {sectionIndex < layout.sections.length - 1 && <Divider sx={{ mt: 4 }} />}
             </Box>
           ))}
 
-          <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
+          <Box sx={{ display: "flex", gap: 2, mt: 4, pt: 2, borderTop: "1px solid rgba(0,0,0,0.05)" }}>
             <Button
               variant="contained"
               startIcon={<SaveIcon />}
               onClick={handleSubmit}
               disabled={submitting}
+              sx={{ bgcolor: "#650C08", px: 4, borderRadius: 2, "&:hover": { bgcolor: "#7a1d16" } }}
             >
-              {submitting ? "Submitting..." : "Submit"}
+              {submitting ? "Saving..." : recordId ? "Save Changes" : "Submit"}
             </Button>
             {onCancel && (
               <Button
                 variant="outlined"
                 onClick={onCancel}
                 disabled={submitting}
+                sx={{ borderRadius: 2, color: "text.secondary", borderColor: "divider" }}
               >
                 Cancel
               </Button>

@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "../contexts/AuthContext";
 
 interface LoginForm {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -16,22 +16,22 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState<LoginForm>({
-    email: "",
+    username: "",
     password: "",
   });
 
   // Password Login
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email || !formData.password) {
-      toast.error("Please enter email and password");
+    if (!formData.username || !formData.password) {
+      toast.error("Please enter username and password");
       return;
     }
 
     setLoading(true);
     try {
       await login({
-        username: formData.email, // backend expects 'username' which maps to email
+        username: formData.username,
         password: formData.password,
       });
       toast.success(`Welcome back!`);
@@ -100,13 +100,13 @@ export default function Login() {
               <form onSubmit={handlePasswordLogin} className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Address
+                    Username
                   </label>
                   <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="you@university.edu"
+                    type="text"
+                    value={formData.username}
+                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    placeholder="Enter your username"
                     className="w-full rounded-lg border-gray-300 border px-4 py-2 focus:ring-2 focus:ring-[#650C08] focus:border-transparent outline-none transition"
                   />
                 </div>

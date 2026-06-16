@@ -1,0 +1,315 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Box,
+  Container,
+  Typography,
+  Paper,
+  Button,
+  Grid,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+} from "@mui/material";
+import {
+  School as SchoolIcon,
+  SupportAgent as SupportAgentIcon,
+  AssignmentTurnedIn as AssignmentIcon,
+  Timeline as TimelineIcon,
+  ArrowForward as ArrowForwardIcon,
+} from "@mui/icons-material";
+import { useAuth } from "../../contexts/AuthContext";
+import { erpRecordAPI, userAPI } from "../../services/api";
+import { fetchReferenceOptions } from "../../utils/referenceLoader";
+import type { DesignerRecord as DbRecord } from "../../types";
+
+const StudentDashboard: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  const [inquiries, setInquiries] = useState<DbRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [counsellors, setCounsellors] = useState<Record<string, any>>({});
+  const [coursesMap, setCoursesMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (user) {
+      fetchStudentData();
+    }
+  }, [user]);
+
+  const fetchStudentData = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch inquiries
+      const inquiriesRes = await erpRecordAPI.getRecordsByModule("inquiry_master");
+      const allInquiries = inquiriesRes.data || [];
+      
+      // Filter for inquiries created by this student user
+      const studentInqs = allInquiries.filter((inq) => String(inq.created_by) === String(user?.user_id));
+      setInquiries(studentInqs);
+
+      // Load reference Courses options to translate course IDs into names
+      const modulesRes = await erpRecordAPI.getAllModules();
+      const modulesList = modulesRes.data || [];
+      const courseOpts = await fetchReferenceOptions("course_id", modulesList, true);
+      if (courseOpts) {
+        const cMap: Record<string, string> = {};
+        courseOpts.forEach(o => { cMap[o.value] = o.label; });
+        setCoursesMap(cMap);
+      }
+
+      // Fetch counsellors list
+      const usersRes = await userAPI.getAll();
+      const list = usersRes.data || [];
+      const cMap: Record<string, any> = {};
+      list.forEach((u: any) => {
+        cMap[String(u.user_id)] = u;
+      });
+      setCounsellors(cMap);
+
+    } catch (err) {
+      console.error("Failed to load student dashboard data:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Enrolled":
+        return { bg: "rgba(16, 185, 129, 0.08)", text: "#10b981" };
+      case "Registered":
+        return { bg: "rgba(6, 182, 212, 0.08)", text: "#0891b2" };
+      case "Assigned":
+        return { bg: "rgba(245, 158, 11, 0.08)", text: "#d97706" };
+      default:
+        return { bg: "rgba(101, 12, 8, 0.08)", text: "#650C08" };
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 400 }}>
+        <CircularProgress size={40} sx={{ color: "#650C08" }} />
+      </Box>
+    );
+  }
+
+  // Find active application
+  const activeInquiry = inquiries[0];
+  const activeCounsellor = activeInquiry?.data?.counsellor_id 
+    ? counsellors[String(activeInquiry.data.counsellor_id)] 
+    : null;
+
+  return (
+    <Container maxWidth="lg" sx={{ py: 1 }}>
+      {/* Welcome Message */}
+      <Box sx={{ p: 4, mb: 4, borderRadius: 4, bgcolor: "#650C08", color: "white", position: "relative", overflow: "hidden", boxShadow: "0 6px 20px rgba(101,12,8,0.15)" }}>
+        <Box sx={{ position: "relative", zIndex: 2 }}>
+          <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, letterSpacing: "-0.02em" }}>
+            Welcome, {user?.first_name || user?.username}!
+          </Typography>
+          <Typography variant="body2" sx={{ opacity: 0.85, maxWidth: 600 }}>
+            Track your admissions, view course details, and coordinate with your assigned counsellors in real time.
+          </Typography>
+        </Box>
+        <SchoolIcon sx={{ position: "absolute", right: -20, bottom: -20, fontSize: 180, opacity: 0.08 }} />
+      </Box>
+
+      {inquiries.length === 0 ? (
+        <Paper sx={{ p: 6, textAlign: "center", borderRadius: 4, border: "1px dashed rgba(0,0,0,0.15)" }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, color: "text.primary", mb: 1.5 }}>
+            No Active Inquiries
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 4, maxWidth: 460, mx: "auto" }}>
+            You haven't submitted any admission inquiries yet. Submit your dynamic admission inquiry form to begin your application process.
+          </Typography>
+          <Button
+            variant="contained"
+            endIcon={<ArrowForwardIcon />}
+            onClick={() => navigate("/register")}
+            sx={{ bgcolor: "#650C08", px: 4, py: 1.2, borderRadius: 2.5, "&:hover": { bgcolor: "#7a1d16" } }}
+          >
+            Start Inquiry Form
+          </Button>
+        </Paper>
+      ) : (
+        <Grid container spacing={4}>
+          {/* Active Application Status Tracker */}
+          <Grid size={{ xs: 12, md: 8 }}>
+            <Card sx={{ borderRadius: 4, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "0 4px 12px rgba(0,0,0,0.02)" }}>
+              <CardContent sx={{ p: 4 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: "#650C08", mb: 3, display: "flex", alignItems: "center", gap: 1 }}>
+                  <TimelineIcon /> Application Status Tracker
+                </Typography>
+
+                <Box sx={{ p: 3, bgcolor: "#f8fafc", borderRadius: 3, mb: 4, border: "1px solid #e2e8f0" }}>
+                  <Grid container spacing={2} sx={{ alignItems: "center", justifyContent: "space-between" }}>
+                    <Grid>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: "block", mb: 0.5 }}>
+                        PROGRAM OF INTEREST
+                      </Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                        {coursesMap[activeInquiry.data.course_id] || activeInquiry.data.course_id || "Under Review"}
+                      </Typography>
+                    </Grid>
+                    <Grid>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: "block", mb: 0.5, textAlign: { sm: "right" } }}>
+                        APPLICATION ID
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontFamily: "monospace", fontWeight: 700, color: "#0f172a", textAlign: { sm: "right" } }}>
+                        {activeInquiry.record_id.slice(0, 12).toUpperCase()}
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Box>
+
+                {/* Admission Timeline Steps */}
+                <Box sx={{ position: "relative", pl: 4, borderLeft: "2px solid #e2e8f0", ml: 2, py: 1 }}>
+                  {[
+                    { title: "Inquiry Submitted", desc: "Your dynamic inquiry form was registered.", step: "Open", active: true },
+                    { title: "Counsellor Assigned", desc: "A counselor has been allocated to review your file.", step: "Assigned", active: ["Assigned", "Registered", "Enrolled"].includes(activeInquiry.data.inquiry_status) },
+                    { title: "Academic Registration", desc: "Submit course qualifications and payment references.", step: "Registered", active: ["Registered", "Enrolled"].includes(activeInquiry.data.inquiry_status) },
+                    { title: "Enrolled & Matriculated", desc: "Official enrollment number issued.", step: "Enrolled", active: activeInquiry.data.inquiry_status === "Enrolled" }
+                  ].map((s, idx) => (
+                    <Box key={idx} sx={{ mb: 4, position: "relative" }}>
+                      {/* Timeline dot */}
+                      <Box
+                        sx={{
+                          position: "absolute",
+                          left: -42,
+                          top: 4,
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          border: `2.5px solid ${s.active ? "#650C08" : "#cbd5e1"}`,
+                          bgcolor: s.active ? "#650C08" : "#white",
+                          boxShadow: s.active ? "0 0 8px rgba(101, 12, 8, 0.4)" : "none",
+                          transition: "all 0.2s"
+                        }}
+                      />
+                      <Typography variant="body1" sx={{ fontWeight: 700, color: s.active ? "#0f172a" : "text.secondary" }}>
+                        {s.title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {s.desc}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Counsellor Info Card */}
+          <Grid size={{ xs: 12, md: 4 }}>
+            <Card sx={{ borderRadius: 4, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "0 4px 12px rgba(0,0,0,0.02)", mb: 4 }}>
+              <CardContent sx={{ p: 4 }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: "#650C08", mb: 3, display: "flex", alignItems: "center", gap: 1 }}>
+                  <SupportAgentIcon /> Assigned Counsellor
+                </Typography>
+
+                {activeCounsellor ? (
+                  <Box sx={{ textAlign: "center", py: 2 }}>
+                    <Box
+                      sx={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: "50%",
+                        bgcolor: "rgba(101, 12, 8, 0.08)",
+                        color: "#650C08",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        mx: "auto",
+                        mb: 2,
+                        fontSize: "1.75rem",
+                        fontWeight: 800
+                      }}
+                    >
+                      {activeCounsellor.first_name?.[0].toUpperCase()}
+                    </Box>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                      {activeCounsellor.first_name} {activeCounsellor.last_name}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                      Admissions counsellor
+                    </Typography>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary" }}>
+                      Email: {activeCounsellor.email}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box sx={{ textAlign: "center", py: 4, color: "text.secondary" }}>
+                    <SupportAgentIcon sx={{ fontSize: 48, opacity: 0.4, mb: 1.5 }} />
+                    <Typography variant="body2">
+                      Your counselor allocation is under process. A counselor will reach out shortly.
+                    </Typography>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card sx={{ borderRadius: 4, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "0 4px 12px rgba(0,0,0,0.02)" }}>
+              <CardContent sx={{ p: 4 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: "#650C08", mb: 2 }}>
+                  Portal Quick Actions
+                </Typography>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={() => navigate("/register")}
+                  sx={{ borderRadius: 2, mb: 1.5, textTransform: "none", color: "#650C08", borderColor: "#650C08", "&:hover": { borderColor: "#7a1d16", bgcolor: "rgba(101,12,8,0.02)" } }}
+                >
+                  Submit Another Admission Form
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* History of submissions */}
+      {inquiries.length > 1 && (
+        <Box sx={{ mt: 5 }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, color: "#650C08", mb: 2, display: "flex", alignItems: "center", gap: 1 }}>
+            <AssignmentIcon /> Inquiry History
+          </Typography>
+          <Paper sx={{ borderRadius: 4, border: "1px solid rgba(0,0,0,0.06)", overflow: "hidden" }}>
+            <List disablePadding>
+              {inquiries.map((inq, idx) => {
+                const colors = getStatusColor(inq.data.inquiry_status || "Open");
+                return (
+                  <React.Fragment key={inq.record_id}>
+                    <ListItem sx={{ py: 2.5, px: 3, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
+                      <ListItemText
+                        primary={coursesMap[inq.data.course_id] || inq.data.course_id || "Course Details"}
+                        secondary={`Submitted on: ${new Date(inq.created_at).toLocaleDateString()} · ID: ${inq.record_id.slice(0, 12)}`}
+                        slotProps={{
+                          primary: { sx: { fontWeight: 700, color: "#0f172a" } }
+                        }}
+                      />
+                      <Chip label={inq.data.inquiry_status || "Open"} size="small" sx={{ fontWeight: 600, bgcolor: colors.bg, color: colors.text, borderRadius: 1.5 }} />
+                    </ListItem>
+                    {idx < inquiries.length - 1 && <Divider />}
+                  </React.Fragment>
+                );
+              })}
+            </List>
+          </Paper>
+        </Box>
+      )}
+    </Container>
+  );
+};
+
+export default StudentDashboard;

@@ -280,12 +280,18 @@ const FieldDesigner: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
+  // Field-group state: system modules + columns of the chosen reference module
+  const [fieldGroupSources, setFieldGroupSources] = useState<Module[]>([]);
+  const [fieldGroupColumns, setFieldGroupColumns] = useState<ModuleColumn[]>([]);
+  const [fieldGroupAllColumns, setFieldGroupAllColumns] = useState<ModuleColumn[]>([]);
+
   const [formData, setFormData] = useState<FieldCreate>({
     module_key: "",
     label: "",
     field_key: "",
     field_type: "text",
-    field_group_name: "",
+    field_group_module_key: "",
+    field_group_column_id: undefined,
     placeholder: "",
     help_tooltip: "",
     default_value: "",
@@ -322,7 +328,7 @@ const FieldDesigner: React.FC = () => {
     if (selectedModule) {
       loadColumns();
       loadFields();
-      // Save selected module to localStorage
+      loadFieldGroupSources(selectedModule);
       localStorage.setItem('selectedModuleKey', selectedModule.module_key);
     }
   }, [selectedModule]);
@@ -334,6 +340,58 @@ const FieldDesigner: React.FC = () => {
     } catch (error) {
       console.error("Error loading modules:", error);
       setModules([]);
+    }
+  };
+
+  // Load system modules that can be used as field_group sources.
+  // Accepts the module explicitly to avoid stale-closure in StrictMode.
+  const loadFieldGroupSources = async (ownerModule: Module) => {
+    try {
+      const res = await designerAPI.getFieldGroupSources(ownerModule.module_key);
+      setFieldGroupSources(res.data || []);
+    } catch {
+      setFieldGroupSources([]);
+    }
+  };
+
+  // Called from onChange — NOT a useEffect — to avoid StrictMode double-fire
+  // which would setState between mousedown+click and close the MUI Select.
+  const handleFieldGroupModuleChange = async (refModuleKey: string) => {
+    setFormData(prev => ({ ...prev, field_group_module_key: refModuleKey, field_group_column_id: undefined }));
+    setFieldGroupColumns([]);
+    setFieldGroupAllColumns([]);
+    if (refModuleKey) {
+      try {
+        const [keyRes, allRes] = await Promise.all([
+          designerAPI.getFieldGroupColumns(refModuleKey),
+          designerAPI.getModuleColumnsByModule(refModuleKey)
+        ]);
+        setFieldGroupColumns(keyRes.data || []);
+        setFieldGroupAllColumns(allRes.data || []);
+      } catch {
+        setFieldGroupColumns([]);
+        setFieldGroupAllColumns([]);
+      }
+    }
+  };
+
+  // When editing an existing field that already has a field_group, pre-load columns.
+  const preloadFieldGroupColumns = async (refModuleKey: string) => {
+    if (!refModuleKey) {
+      setFieldGroupColumns([]);
+      setFieldGroupAllColumns([]);
+      return;
+    }
+    try {
+      const [keyRes, allRes] = await Promise.all([
+        designerAPI.getFieldGroupColumns(refModuleKey),
+        designerAPI.getModuleColumnsByModule(refModuleKey)
+      ]);
+      setFieldGroupColumns(keyRes.data || []);
+      setFieldGroupAllColumns(allRes.data || []);
+    } catch {
+      setFieldGroupColumns([]);
+      setFieldGroupAllColumns([]);
     }
   };
 
@@ -363,12 +421,14 @@ const FieldDesigner: React.FC = () => {
     setIsCreating(true);
     setSelectedFieldId(null);
     setSelectedColumnId(null);
+    setFieldGroupColumns([]);
     setFormData({
       module_key: selectedModule?.module_key || "",
       label: "",
       field_key: "",
       field_type: "text",
-      field_group_name: "",
+      field_group_module_key: "",
+      field_group_column_id: undefined,
       placeholder: "",
       help_tooltip: "",
       default_value: "",
@@ -388,12 +448,17 @@ const FieldDesigner: React.FC = () => {
   const handleEdit = (field: Field) => {
     setIsCreating(false);
     setSelectedFieldId(field.field_id);
+    // Decode field_group_module_key from "owning__referenced" format
+    const storedGroupName = field.field_group_name || "";
+    const parts = storedGroupName.split("__");
+    const refModuleKey = parts.length === 2 ? parts[1] : "";
     setFormData({
       module_key: field.module_key,
       label: field.label,
       field_key: field.field_key,
       field_type: field.field_type,
-      field_group_name: field.field_group_name,
+      field_group_module_key: refModuleKey,
+      field_group_column_id: field.field_group_id ?? undefined,
       placeholder: field.placeholder,
       help_tooltip: field.help_tooltip,
       default_value: field.default_value,
@@ -408,6 +473,8 @@ const FieldDesigner: React.FC = () => {
       is_exportable: field.is_exportable,
       sort_order: field.sort_order,
     });
+    // Pre-load columns for the existing reference module
+    preloadFieldGroupColumns(refModuleKey);
   };
 
   const handleDelete = async (fieldId: number) => {
@@ -433,7 +500,26 @@ const FieldDesigner: React.FC = () => {
 
     try {
       if (selectedField) {
-        const updateData: FieldUpdate = { ...formData };
+        const updateData: FieldUpdate = {
+          label: formData.label,
+          field_key: formData.field_key,
+          field_type: formData.field_type,
+          field_group_module_key: formData.field_group_module_key || "",
+          field_group_column_id: formData.field_group_column_id,
+          placeholder: formData.placeholder,
+          help_tooltip: formData.help_tooltip,
+          default_value: formData.default_value,
+          min_value: formData.min_value,
+          max_value: formData.max_value,
+          system_field: formData.system_field,
+          is_visible: formData.is_visible,
+          is_mandatory: formData.is_mandatory,
+          is_pii: formData.is_pii,
+          is_audited: formData.is_audited,
+          is_searchable: formData.is_searchable,
+          is_exportable: formData.is_exportable,
+          sort_order: formData.sort_order,
+        };
         await designerAPI.updateField(selectedField.field_id, updateData);
       } else {
         await designerAPI.createField(formData);
@@ -452,15 +538,18 @@ const FieldDesigner: React.FC = () => {
     setSelectedFieldId(null);
   };
 
+  // Functional updater prevents stale-closure issues in rapid multi-field updates.
   const setField = (key: keyof FieldCreate, value: any) => {
-    setFormData({ ...formData, [key]: value });
+    setFormData(prev => ({ ...prev, [key]: value }));
   };
 
   const onLabelChange = (value: string) => {
-    setField("label", value);
-    if (!formData.field_key || formData.field_key === toKey(formData.label)) {
-      setField("field_key", toKey(value));
-    }
+    // Single setFormData call avoids the double-call stale-closure race.
+    setFormData(prev => ({
+      ...prev,
+      label: value,
+      ...(!prev.field_key || prev.field_key === toKey(prev.label) ? { field_key: toKey(value) } : {}),
+    }));
   };
 
   // Filter fields based on search
@@ -870,40 +959,84 @@ const FieldDesigner: React.FC = () => {
                         label="Map to table column"
                       >
                         <MenuItem value="">— None —</MenuItem>
-                        {columns.map((column) => (
+                        {(formData.field_group_module_key ? fieldGroupAllColumns : columns).map((column) => (
                           <MenuItem key={column.column_id} value={column.column_name}>
                             {column.column_name} ({column.db_data_type})
                           </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
-                    <FormControl fullWidth size="small">
-                      <InputLabel>Field group</InputLabel>
-                      <Select
-                        value={formData.field_group_name}
-                        onChange={(e) => setField("field_group_name", e.target.value)}
-                        label="Field group"
-                      >
-                        <MenuItem value="">— None —</MenuItem>
-                        {modules.map((module) => (
-                          <MenuItem key={module.module_id} value={module.module_key}>
-                            {module.module_key}
-                          </MenuItem>
-                        ))}
-                        <MenuItem value="__custom__">+ Custom field group...</MenuItem>
-                      </Select>
-                    </FormControl>
-                    {formData.field_group_name === "__custom__" && (
-                      <TextField
-                        fullWidth
-                        label="Custom field group name"
-                        value=""
-                        onChange={(e) => setField("field_group_name", e.target.value)}
-                        placeholder="e.g. Academic details"
-                        size="small"
-                        sx={{ gridColumn: "span 2" }}
-                      />
-                    )}
+
+                    {/* ── FIELD GROUP — cross-module picker ─────────────── */}
+                    <Box sx={{ gridColumn: "span 2", border: `1px solid ${C.border}`, borderRadius: 2, p: 1.5, background: C.navyLight }}>
+                      <Typography sx={{ fontSize: 11, fontWeight: 700, color: C.navy, letterSpacing: ".05em", textTransform: "uppercase", mb: 1 }}>
+                        🔗 Field Group (Cross-module link)
+                      </Typography>
+
+                      {/* Step 1 — pick reference module (system tables only) */}
+                      <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                        <InputLabel>Step 1 — Reference module</InputLabel>
+                        <Select
+                          value={formData.field_group_module_key || ""}
+                          label="Step 1 — Reference module"
+                          onChange={(e) => handleFieldGroupModuleChange(e.target.value)}
+                        >
+                          <MenuItem value="">— None —</MenuItem>
+                          {fieldGroupSources.map((m) => (
+                            <MenuItem key={m.module_key} value={m.module_key}>
+                              {m.module_name}
+                              <span style={{ fontSize: 10, color: C.textFaint, marginLeft: 6, fontFamily: "monospace" }}>
+                                {m.module_key}
+                              </span>
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+
+                      {/* Auto-generated locked group-name badge */}
+                      {formData.field_group_module_key && (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                          <Typography sx={{ fontSize: 11, color: C.textMid, fontWeight: 500 }}>Group name (auto-locked):</Typography>
+                          <span style={{
+                            fontFamily: "monospace", fontSize: 11,
+                            background: C.navyMid, color: C.navy,
+                            padding: "2px 8px", borderRadius: 4,
+                            fontWeight: 700, letterSpacing: ".02em",
+                          }}>
+                            🔒 {formData.module_key}__{formData.field_group_module_key}
+                          </span>
+                        </Box>
+                      )}
+
+                      {/* Step 2 — pick a column from the referenced module */}
+                      {formData.field_group_module_key && (
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Step 2 — Column from this module</InputLabel>
+                          <Select
+                            value={formData.field_group_column_id != null ? String(formData.field_group_column_id) : ""}
+                            label="Step 2 — Column from this module"
+                            onChange={(e) => setField("field_group_column_id", e.target.value === "" ? undefined : Number(e.target.value))}
+                          >
+                            <MenuItem value="">— Select column —</MenuItem>
+                            {fieldGroupColumns.map((col) => (
+                              <MenuItem key={col.column_id} value={String(col.column_id)}>
+                                {col.column_name}
+                                <span style={{ fontSize: 10, color: C.textFaint, marginLeft: 6 }}>
+                                  {col.is_primary_key ? "🔑 PK · " : col.is_unique ? "🔷 Unique · " : ""}{col.db_data_type}
+                                </span>
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      )}
+
+                      {!formData.field_group_module_key && (
+                        <Typography sx={{ fontSize: 11, color: C.textFaint, fontStyle: "italic" }}>
+                          Select a reference module to link this field to another table.
+                        </Typography>
+                      )}
+                    </Box>
+                    {/* ── end field group ────────────────────────────────── */}
                     <TextField
                       fullWidth
                       label="Placeholder"
