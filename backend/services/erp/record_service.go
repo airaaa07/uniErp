@@ -95,12 +95,34 @@ func (s *RecordService) CreateRecord(req models.RecordCreate, createdBy int64) (
 }
 
 func (s *RecordService) GetRecord(recordID string) (*models.Record, error) {
-	var record models.Record
-	err := s.db.Get(&record, "SELECT * FROM records WHERE record_id = $1", recordID)
+	type recordRow struct {
+		RecordID  string    `db:"record_id"`
+		ModuleKey string    `db:"module_key"`
+		Data      []byte    `db:"data"`
+		CreatedBy *int64    `db:"created_by"`
+		CreatedAt time.Time `db:"created_at"`
+	}
+
+	var row recordRow
+	err := s.db.Get(&row, "SELECT * FROM records WHERE record_id = $1", recordID)
 	if err != nil {
 		return nil, err
 	}
-	return &record, nil
+
+	var data map[string]interface{}
+	if len(row.Data) > 0 {
+		if err := json.Unmarshal(row.Data, &data); err != nil {
+			return nil, err
+		}
+	}
+
+	return &models.Record{
+		RecordID:  row.RecordID,
+		ModuleKey: row.ModuleKey,
+		Data:      data,
+		CreatedBy: row.CreatedBy,
+		CreatedAt: row.CreatedAt,
+	}, nil
 }
 
 func (s *RecordService) GetRecordsByModule(moduleKey string) ([]models.Record, error) {
