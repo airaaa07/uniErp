@@ -57,9 +57,15 @@ If the database is seeded (`SEED_DB=true`), you can log in to the ERP using the 
 
 ## 4. Role Metadata Reference
 
-Inside the database system, user roles are assigned the following IDs:
-- **University Admin Role ID**: `2`
-- **College Admin Role ID**: `9`
+Inside the database system, user roles are assigned the following IDs (based on seed order):
+- **Super Admin Role ID**: `1` - Full system access
+- **University Admin Role ID**: `2` - University-level administration, creates colleges, assigns counsellors
+- **College Admin Role ID**: `3` - College-scoped administration, manages their college's users
+- **Counsellor Role ID**: `4` - Counsels assigned student leads
+- **Admission Officer Role ID**: `5` - Reviews and approves/rejects registrations
+- **Registrar Role ID**: `6` - Matriculates approved students, manages enrollments
+- **Finance Controller Role ID**: `7` - Manages fee structures and payments
+- **Student Role ID**: `8` - Student portal access
 
 ---
 
@@ -77,6 +83,7 @@ CREATE TABLE users (
     password_hash TEXT NOT NULL,
     first_name VARCHAR(100),
     last_name VARCHAR(100),
+    college_id BIGINT REFERENCES records(record_id), -- For College Admin scoped access
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

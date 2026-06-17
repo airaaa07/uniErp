@@ -52,11 +52,17 @@ const DashboardLayout: React.FC = () => {
     return role.role_name?.toLowerCase() === 'student';
   }) || false;
 
-  const isAdmin = user?.roles?.some((role: any) => {
+  const isSuperAdmin = user?.roles?.some((role: any) => {
     const name = typeof role === 'string' ? role : role.role_name;
-    const lowerName = name?.toLowerCase() || '';
-    return lowerName.includes('admin') || lowerName.includes('super admin');
+    return name?.toLowerCase() === 'super admin';
   }) || false;
+
+  const isUniversityAdmin = user?.roles?.some((role: any) => {
+    const name = typeof role === 'string' ? role : role.role_name;
+    return name?.toLowerCase() === 'university admin';
+  }) || false;
+
+  const isAdmin = isSuperAdmin || isUniversityAdmin;
 
   const isCounsellor = user?.roles?.some((role: any) => {
     const name = typeof role === 'string' ? role : role.role_name;
@@ -144,8 +150,6 @@ const DashboardLayout: React.FC = () => {
     : isCounsellor
     ? [
         { text: 'Counsellor Dashboard', icon: <DashboardIcon />, path: '/counsellor/dashboard' },
-        { text: 'Admissions & Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
-        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
       ]
     : isFinance
     ? [
@@ -171,17 +175,19 @@ const DashboardLayout: React.FC = () => {
     : isCollegeAdmin
     ? [
         { text: 'College Dashboard', icon: <DashboardIcon />, path: '/college/dashboard' },
-        { text: 'Colleges & Institutes', icon: <BusinessIcon />, path: '/admin/dashboard/modules/institute_master' },
         { text: 'Courses Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
         { text: 'Streams Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/streams_master' },
         { text: 'Subjects Catalog', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/subject_master' },
+        { text: 'College Users', icon: <PeopleIcon />, path: '/college/users' },
       ]
     : [
         { text: 'Admin Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' },
-        ...modules.map(mod => getModuleMenuItem(mod)),
-        ...(isAdmin ? [
-          { text: 'User Administration', icon: <PeopleIcon />, path: '/admin/dashboard/users' }
-        ] : [])
+        { text: 'Colleges & Institutes', icon: <BusinessIcon />, path: '/admin/dashboard/modules/institute_master' },
+        { text: 'Counsellor Allocations', icon: <HandshakeIcon />, path: '/admin/dashboard/modules/counsellor_arrangement' },
+        ...modules
+          .filter(mod => !['institute_master', 'counsellor_arrangement'].includes(mod.module_key))
+          .map(mod => getModuleMenuItem(mod)),
+        { text: 'User Administration', icon: <PeopleIcon />, path: '/admin/dashboard/users' },
       ];
 
   const handleDrawerToggle = () => {

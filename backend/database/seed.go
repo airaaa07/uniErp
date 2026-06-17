@@ -61,10 +61,13 @@ func SeedData(db *sqlx.DB) error {
 		name string
 	}{
 		{"Super Admin"},
-		{"Admin"},
+		{"University Admin"},
+		{"College Admin"},
 		{"Counsellor"},
 		{"Admission Officer"},
 		{"Registrar"},
+		{"Finance Controller"},
+		{"Student"},
 	}
 
 	roleIDs := make(map[string]int64)
@@ -100,11 +103,15 @@ func SeedData(db *sqlx.DB) error {
 			"audit.read",
 			"settings.read", "settings.update", "settings.create", "settings.delete",
 		},
-		"Admin": {
+		"University Admin": {
 			"user.create", "user.read", "user.update", "user.disable",
 			"role.read", "role.assign",
 			"audit.read",
-			"settings.read",
+			"settings.read", "settings.update",
+		},
+		"College Admin": {
+			"user.create", "user.read", "user.update",
+			"audit.read",
 		},
 		"Counsellor": {
 			"user.read",
@@ -118,6 +125,13 @@ func SeedData(db *sqlx.DB) error {
 			"user.read", "user.update",
 			"audit.read",
 			"settings.read",
+		},
+		"Finance Controller": {
+			"user.read",
+			"audit.read",
+		},
+		"Student": {
+			"user.read",
 		},
 	}
 

@@ -181,6 +181,17 @@ func main() {
 
 			erpAdmin.GET("/roles", roleHandler.GetAllRoles)
 		}
+
+		// College Admin User Management (scoped to their college)
+		collegeAdmin := erpGroup.Group("")
+		collegeAdmin.Use(middleware.RequireCollegeAdminRole(db))
+		{
+			collegeAdmin.GET("/college/users", userHandler.GetCollegeUsers)
+			collegeAdmin.POST("/college/users", userHandler.CreateCollegeUser)
+			collegeAdmin.GET("/college/users/:id", userHandler.GetCollegeUser)
+			collegeAdmin.PUT("/college/users/:id", userHandler.UpdateCollegeUser)
+			collegeAdmin.PATCH("/college/users/:id/disable", userHandler.ToggleCollegeUserStatus)
+		}
 	}
 
 	// ==================== PUBLIC DESIGNER ROUTES ====================

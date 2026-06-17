@@ -32,15 +32,17 @@ func (s *UserService) CreateUser(req models.UserCreate) (*models.UserResponse, e
 			email,
 			password_hash,
 			first_name,
-			last_name
+			last_name,
+			college_id
 		)
-		VALUES ($1, $2, $3, $4, $5)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING user_id`,
 		req.Username,
 		req.Email,
 		hashedPassword,
 		req.FirstName,
 		req.LastName,
+		req.CollegeID,
 	).Scan(&userID)
 
 	if err != nil {
@@ -251,10 +253,123 @@ func (s *UserService) RemoveRole(userID int64, roleID int64) error {
 func (s *UserService) GetUserRoles(userID int64) ([]string, error) {
 	var roles []string
 	err := s.db.Select(&roles, `
-		SELECT r.role_name 
+		SELECT r.role_name
 		FROM roles r
 		INNER JOIN user_roles ur ON r.role_id = ur.role_id
 		WHERE ur.user_id = $1
 	`, userID)
 	return roles, err
+}
+
+// College-scoped methods for College Admin
+
+func (s *UserService) GetUsersByCollege(collegeID int64, search string) ([]models.UserResponse, error) {
+	var users []models.User
+	var err error
+
+	if search != "" {
+		searchPattern := "%" + search + "%"
+		err = s.db.Select(&users,
+			`SELECT * FROM users
+			 WHERE college_id = $1
+			 AND (username ILIKE $2 OR email ILIKE $2 OR first_name ILIKE $2 OR last_name ILIKE $2)
+			 ORDER BY created_at DESC`,
+			collegeID, searchPattern)
+	} else {
+		err = s.db.Select(&users,
+			`SELECT * FROM users WHERE college_id = $1 ORDER BY created_at DESC`,
+			collegeID)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	var responses []models.UserResponse
+	for _, user := range users {
+		roles, err := s.GetUserRoles(user.UserID)
+		if err != nil {
+			return nil, err
+		}
+
+		responses = append(responses, models.UserResponse{
+			UserID:    user.UserID,
+			Username:  user.Username,
+			Email:     user.Email,
+			FirstName: user.FirstName,
+			LastName:  user.LastName,
+			CollegeID: user.CollegeID,
+			IsActive:  user.IsActive,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+			Roles:     roles,
+		})
+	}
+
+	return responses, nil
+}
+
+func (s *UserService) GetUserByIDAndCollege(userID int64, collegeID int64) (*models.UserResponse, error) {
+	var user models.User
+	err := s.db.Get(&user,
+		`SELECT * FROM users WHERE user_id = $1 AND college_id = $2`,
+		userID, collegeID)
+	if err != nil {
+		return nil, err
+	}
+
+	roles, err := s.GetUserRoles(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.UserResponse{
+		UserID:    user.UserID,
+		Username:  user.Username,
+		Email:     user.Email,
+		FirstName: user.FirstName,
+		LastName:  user.LastName,
+		CollegeID: user.CollegeID,
+		IsActive:  user.IsActive,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Roles:     roles,
+	}, nil
+}
+
+func (s *UserService) UpdateUserByCollege(userID int64, collegeID int64, req models.UserUpdate) (*models.UserResponse, error) {
+	// First verify user belongs to the college
+	var exists bool
+	err := s.db.QueryRow(
+		`SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1 AND college_id = $2)`,
+		userID, collegeID,
+	).Scan(&exists)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("user not found in your college")
+	}
+
+	return s.UpdateUser(userID, req)
+}
+
+func (s *UserService) ToggleUserStatusByCollege(userID int64, collegeID int64) error {
+	result, err := s.db.Exec(`
+		UPDATE users
+		SET is_active = NOT is_active,
+		    updated_at = $1
+		WHERE user_id = $2 AND college_id = $3
+	`, time.Now(), userID, collegeID)
+
+	if err != nil {
+		return err
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("user not found in your college")
+	}
+
+	return nil
 }

@@ -9,3 +9,4 @@ docs/
 *.sh
 *.xlsx
 data_model_inspect.txt
+.env

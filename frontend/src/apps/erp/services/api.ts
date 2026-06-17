@@ -94,6 +94,12 @@ export const userAPI = {
   disable: (id: number) => api.patch(`/users/${id}/disable`),
   assignRole: (id: number, roleId: number) => api.post(`/users/${id}/roles`, { role_id: roleId }),
   removeRole: (id: number, roleId: number) => api.delete(`/users/${id}/roles`, { data: { role_id: roleId } }),
+  // College Admin scoped endpoints
+  getCollegeUsers: (search?: string) => api.get<User[]>(`/college/users${search ? `?search=${search}` : ''}`),
+  getCollegeUser: (id: number) => api.get<User>(`/college/users/${id}`),
+  createCollegeUser: (data: any) => api.post<User>('/college/users', data),
+  updateCollegeUser: (id: number, data: any) => api.put<User>(`/college/users/${id}`, data),
+  toggleCollegeUserStatus: (id: number) => api.patch(`/college/users/${id}/disable`),
 };
 
 export const roleAPI = {
