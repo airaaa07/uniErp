@@ -3,15 +3,16 @@ package models
 import "time"
 
 type User struct {
-	UserID       int64     `db:"user_id" json:"user_id"`
-	Username     string    `db:"username" json:"username"`
-	Email        string    `db:"email" json:"email"`
-	PasswordHash string    `db:"password_hash" json:"-"`
-	FirstName    string    `db:"first_name" json:"first_name"`
-	LastName     string    `db:"last_name" json:"last_name"`
-	IsActive     bool      `db:"is_active" json:"is_active"`
-	CreatedAt    time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+	UserID       int64      `db:"user_id" json:"user_id"`
+	Username     string     `db:"username" json:"username"`
+	Email        string     `db:"email" json:"email"`
+	PasswordHash string     `db:"password_hash" json:"-"`
+	FirstName    string     `db:"first_name" json:"first_name"`
+	LastName     string     `db:"last_name" json:"last_name"`
+	CollegeID    *int64     `db:"college_id" json:"college_id"`
+	IsActive     bool       `db:"is_active" json:"is_active"`
+	CreatedAt    time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt    time.Time  `db:"updated_at" json:"updated_at"`
 }
 
 type UserCreate struct {
@@ -20,6 +21,7 @@ type UserCreate struct {
 	Password  string `json:"password" binding:"required,min=6"`
 	FirstName string `json:"first_name"`
 	LastName  string `json:"last_name"`
+	CollegeID *int64 `json:"college_id"`
 	RoleID    int64  `json:"role_id"`
 }
 
@@ -38,6 +40,7 @@ type UserResponse struct {
 	Email     string    `json:"email"`
 	FirstName string    `json:"first_name"`
 	LastName  string    `json:"last_name"`
+	CollegeID *int64    `json:"college_id,omitempty"`
 	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

@@ -10,3 +10,5 @@ docs/
 *.xlsx
 data_model_inspect.txt
 temp_excel/
+.env
+

@@ -169,3 +169,122 @@ func (h *UserHandler) RemoveRole(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Role removed successfully"})
 }
+
+// College Admin scoped handlers
+
+func (h *UserHandler) GetCollegeUsers(c *gin.Context) {
+	collegeID, exists := c.Get("college_id")
+	if !exists {
+		c.JSON(http.StatusForbidden, gin.H{"error": "College ID not found for admin"})
+		return
+	}
+
+	search := c.Query("search")
+	users, err := h.userService.GetUsersByCollege(collegeID.(int64), search)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
+}
+
+func (h *UserHandler) CreateCollegeUser(c *gin.Context) {
+	collegeID, exists := c.Get("college_id")
+	if !exists {
+		c.JSON(http.StatusForbidden, gin.H{"error": "College ID not found for admin"})
+		return
+	}
+
+	var req models.UserCreate
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	req.CollegeID = &collegeID.(int64)
+
+	user, err := h.userService.CreateUser(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, user)
+}
+
+func (h *UserHandler) GetCollegeUser(c *gin.Context) {
+	collegeID, exists := c.Get("college_id")
+	if !exists {
+		c.JSON(http.StatusForbidden, gin.H{"error": "College ID not found for admin"})
+		return
+	}
+
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	user, err := h.userService.GetUserByIDAndCollege(userID, collegeID.(int64))
+	if err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found in your college"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+func (h *UserHandler) UpdateCollegeUser(c *gin.Context) {
+	collegeID, exists := c.Get("college_id")
+	if !exists {
+		c.JSON(http.StatusForbidden, gin.H{"error": "College ID not found for admin"})
+		return
+	}
+
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	var req models.UserUpdate
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := h.userService.UpdateUserByCollege(userID, collegeID.(int64), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, user)
+}
+
+func (h *UserHandler) ToggleCollegeUserStatus(c *gin.Context) {
+	collegeID, exists := c.Get("college_id")
+	if !exists {
+		c.JSON(http.StatusForbidden, gin.H{"error": "College ID not found for admin"})
+		return
+	}
+
+	userID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	err = h.userService.ToggleUserStatusByCollege(userID, collegeID.(int64))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "User status toggled successfully"})
+}
