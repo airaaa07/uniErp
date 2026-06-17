@@ -246,9 +246,9 @@ func main() {
 
 		// Module Routes
 		designerGroup.POST("/modules", designerHandler.CreateModule)
-		// GetDesignerModules filters out is_system=true (seeded system tables).
-		// Designers only see and manage modules they created.
-		designerGroup.GET("/modules", designerHandler.GetDesignerModules)
+		// GetAllModules returns all modules (both system and designer-created).
+		// Designers see all modules so they can customize layouts/fields.
+		designerGroup.GET("/modules", designerHandler.GetAllModules)
 		designerGroup.GET("/modules/:moduleKey", designerHandler.GetModule)
 		designerGroup.PUT("/modules/:moduleKey", designerHandler.UpdateModule)
 		designerGroup.DELETE("/modules/:moduleKey", designerHandler.DeleteModule)
