@@ -37,6 +37,12 @@ import {
   Handshake as HandshakeIcon,
   TableChart as TableChartIcon,
   AppRegistration as AppRegistrationIcon,
+  Person as PersonIcon,
+  Help as HelpIcon,
+  Class as ClassIcon,
+  Book as BookIcon,
+  Settings as SettingsIcon,
+  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { erpRecordAPI, authAPI } from '../services/api';
@@ -176,51 +182,84 @@ const DashboardLayout: React.FC = () => {
     };
   };
 
-  const menuItems = isStudent
+  // Section header type — rendered as a non-clickable label in drawer
+  type SectionHeader = { type: 'header'; text: string };
+  type MenuItem = { text: string; icon: React.ReactNode; path: string; type?: never };
+  type NavItem = MenuItem | SectionHeader;
+
+  const menuItems: NavItem[] = isStudent
     ? [
-        { text: 'Student Dashboard', icon: <DashboardIcon />, path: '/student/dashboard' },
-        { text: 'Register / New Inquiry', icon: <AssignmentIcon />, path: '/register' }
+        { text: 'My Application', icon: <DashboardIcon />, path: '/student/dashboard' },
+        { text: 'My Profile', icon: <PersonIcon />, path: '/student/profile' },
+        { text: 'Help & Contact', icon: <HelpIcon />, path: '/student/help' },
       ]
     : isCounsellor
     ? [
         { text: 'Counsellor Dashboard', icon: <DashboardIcon />, path: '/counsellor/dashboard' },
+        { text: 'Admissions & Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
       ]
     : isFinance
     ? [
         { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance/dashboard' },
+        { type: 'header', text: 'FINANCE' } as SectionHeader,
         { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
         { text: 'Registration Fees', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/registration_fee' },
+        { type: 'header', text: 'RECORDS' } as SectionHeader,
         { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
       ]
     : isOfficer
     ? [
         { text: 'Admission Officer Dashboard', icon: <DashboardIcon />, path: '/officer/dashboard' },
+        { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
         { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
         { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
+        { type: 'header', text: 'REFERENCES' } as SectionHeader,
+        { text: 'Courses Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
+        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
       ]
     : isRegistrar
     ? [
         { text: 'Registrar Dashboard', icon: <DashboardIcon />, path: '/registrar/dashboard' },
+        { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
         { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
         { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
+        { type: 'header', text: 'FACILITIES' } as SectionHeader,
         { text: 'Hostel Allotments', icon: <BusinessIcon />, path: '/admin/dashboard/modules/hostel_allotment' },
-        { text: 'Transport Allotments', icon: <DashboardIcon />, path: '/admin/dashboard/modules/transport_allotment' },
+        { text: 'Transport Allotments', icon: <TrendingUpIcon />, path: '/admin/dashboard/modules/transport_allotment' },
       ]
     : isCollegeAdmin
     ? [
         { text: 'College Dashboard', icon: <DashboardIcon />, path: '/college/dashboard' },
-        { text: 'Courses Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
-        { text: 'Streams Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/streams_master' },
-        { text: 'Subjects Catalog', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/subject_master' },
-        { text: 'College Users', icon: <PeopleIcon />, path: '/college/users' },
+        { type: 'header', text: 'ACADEMICS' } as SectionHeader,
+        { text: 'Courses Catalogue', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
+        { text: 'Streams / Branches', icon: <ClassIcon />, path: '/admin/dashboard/modules/streams_master' },
+        { text: 'Subjects & Syllabus', icon: <BookIcon />, path: '/admin/dashboard/modules/subject_master' },
+        { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
+        { text: 'Student Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
+        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
+        { type: 'header', text: 'FINANCE' } as SectionHeader,
+        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
+        { type: 'header', text: 'PEOPLE' } as SectionHeader,
+        { text: 'College Staff / Users', icon: <PeopleIcon />, path: '/college/users' },
       ]
     : [
+        // University Admin / Super Admin — organized sections
         { text: 'Admin Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' },
+        { type: 'header', text: 'ORGANISATION' } as SectionHeader,
         { text: 'Colleges & Institutes', icon: <BusinessIcon />, path: '/admin/dashboard/modules/institute_master' },
         { text: 'Counsellor Allocations', icon: <HandshakeIcon />, path: '/admin/dashboard/modules/counsellor_arrangement' },
-        ...modules
-          .filter(mod => !['institute_master', 'counsellor_arrangement'].includes(mod.module_key))
-          .map(mod => getModuleMenuItem(mod)),
+        { text: 'Counsellors Directory', icon: <SupportAgentIcon />, path: '/admin/dashboard/modules/counsellor_master' },
+        { type: 'header', text: 'ACADEMICS' } as SectionHeader,
+        { text: 'Courses Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
+        { text: 'Streams Catalog', icon: <ClassIcon />, path: '/admin/dashboard/modules/streams_master' },
+        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
+        { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
+        { text: 'Admissions & Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
+        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
+        { type: 'header', text: 'PEOPLE' } as SectionHeader,
         { text: 'User Administration', icon: <PeopleIcon />, path: '/admin/dashboard/users' },
       ];
 
@@ -277,14 +316,35 @@ const DashboardLayout: React.FC = () => {
       </Toolbar>
       
       <List sx={{ px: 2, flexGrow: 1, overflowY: 'auto' }}>
-        {menuItems.map((item) => {
-          const isSelected = location.pathname === item.path;
+        {menuItems.map((item, idx) => {
+          // Section header — render as a non-clickable label
+          if (item.type === 'header') {
+            return (
+              <Box key={`header-${idx}`} sx={{ px: 1, pt: idx === 0 ? 0.5 : 2, pb: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.65rem',
+                    letterSpacing: '0.08em',
+                    color: 'text.disabled',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {item.text}
+                </Typography>
+              </Box>
+            );
+          }
+
+          const navItem = item as { text: string; icon: React.ReactNode; path: string };
+          const isSelected = location.pathname === navItem.path;
           return (
-            <ListItem key={item.text} disablePadding sx={{ mb: 0.5, position: 'relative' }}>
+            <ListItem key={navItem.text} disablePadding sx={{ mb: 0.5, position: 'relative' }}>
               <ListItemButton
                 selected={isSelected}
                 onClick={() => {
-                  navigate(item.path);
+                  navigate(navItem.path);
                   setMobileOpen(false);
                 }}
                 sx={{
@@ -300,10 +360,10 @@ const DashboardLayout: React.FC = () => {
                     transition: 'color 0.2s',
                   }}
                 >
-                  {item.icon}
+                  {navItem.icon}
                 </ListItemIcon>
                 <ListItemText
-                  primary={item.text}
+                  primary={navItem.text}
                   slotProps={{
                     primary: {
                       sx: {
@@ -418,7 +478,7 @@ const DashboardLayout: React.FC = () => {
                 color: 'slate.900',
               }}
             >
-              {menuItems.find((item) => item.path === location.pathname)?.text || 'Dashboard'}
+              {(menuItems.find((item) => item.type !== 'header' && (item as any).path === location.pathname) as any)?.text || 'Dashboard'}
             </Typography>
           </Box>
 
