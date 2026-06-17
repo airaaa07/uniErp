@@ -12,23 +12,20 @@ import {
 } from "@mui/material";
 import {
   Business as BusinessIcon,
-  School as SchoolIcon,
-  Class as ClassIcon,
-  Book as BookIcon,
   People as PeopleIcon,
+  Handshake as HandshakeIcon,
   ArrowForward as ArrowForwardIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext";
 import { erpRecordAPI, userAPI } from "../../services/api";
 
-const CollegeDashboard: React.FC = () => {
+const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
   const [counts, setCounts] = useState({
-    courses: 0,
-    streams: 0,
-    subjects: 0,
+    colleges: 0,
+    arrangements: 0,
     users: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -42,21 +39,19 @@ const CollegeDashboard: React.FC = () => {
   const fetchCounts = async () => {
     try {
       setLoading(true);
-      const [courseRes, streamsRes, subRes, usersRes] = await Promise.all([
-        erpRecordAPI.getRecordsByModule("course_master"),
-        erpRecordAPI.getRecordsByModule("streams_master"),
-        erpRecordAPI.getRecordsByModule("subject_master"),
-        userAPI.getCollegeUsers(),
+      const [instRes, arrRes, usersRes] = await Promise.all([
+        erpRecordAPI.getRecordsByModule("institute_master"),
+        erpRecordAPI.getRecordsByModule("counsellor_arrangement"),
+        userAPI.getAll(),
       ]);
 
       setCounts({
-        courses: courseRes.data?.length || 0,
-        streams: streamsRes.data?.length || 0,
-        subjects: subRes.data?.length || 0,
+        colleges: instRes.data?.length || 0,
+        arrangements: arrRes.data?.length || 0,
         users: usersRes.data?.length || 0,
       });
     } catch (err) {
-      console.error("Failed to load counts:", err);
+      console.error("Failed to load admin counts:", err);
     } finally {
       setLoading(false);
     }
@@ -72,36 +67,28 @@ const CollegeDashboard: React.FC = () => {
 
   const sections = [
     {
-      title: "Courses Catalogue",
-      count: counts.courses,
-      icon: <SchoolIcon sx={{ fontSize: 40, color: "#650C08" }} />,
-      path: "/admin/dashboard/modules/course_master",
-      description: "Define major degree programs offered at the university, including enrollment windows.",
-      btnText: "Manage Courses",
+      title: "Colleges & Institutes",
+      count: counts.colleges,
+      icon: <BusinessIcon sx={{ fontSize: 40, color: "#650C08" }} />,
+      path: "/admin/dashboard/modules/institute_master",
+      description: "Manage university campuses, location details, contact info, and closure dates.",
+      btnText: "Manage Colleges",
     },
     {
-      title: "Streams catalog",
-      count: counts.streams,
-      icon: <ClassIcon sx={{ fontSize: 40, color: "#650C08" }} />,
-      path: "/admin/dashboard/modules/streams_master",
-      description: "Specify branch options under courses, program duration, and academic format.",
-      btnText: "Manage Streams",
+      title: "Counsellor Allocations",
+      count: counts.arrangements,
+      icon: <HandshakeIcon sx={{ fontSize: 40, color: "#650C08" }} />,
+      path: "/admin/dashboard/modules/counsellor_arrangement",
+      description: "Oversee counselor fee sharing arrangements and stream allocations.",
+      btnText: "Manage Allocations",
     },
     {
-      title: "Subjects list",
-      count: counts.subjects,
-      icon: <BookIcon sx={{ fontSize: 40, color: "#650C08" }} />,
-      path: "/admin/dashboard/modules/subject_master",
-      description: "Track course subjects, textbook lists, syllabus outlines, and textbooks.",
-      btnText: "Manage Subjects",
-    },
-    {
-      title: "College Users",
+      title: "User Administration",
       count: counts.users,
       icon: <PeopleIcon sx={{ fontSize: 40, color: "#650C08" }} />,
-      path: "/college/users",
-      description: "Manage users, staff, and roles assigned specifically to this college campus.",
-      btnText: "Manage College Users",
+      path: "/admin/dashboard/users",
+      description: "Perform system user management, update credentials, and assign roles.",
+      btnText: "Manage Users",
     },
   ];
 
@@ -111,10 +98,10 @@ const CollegeDashboard: React.FC = () => {
       <Box sx={{ p: 4, mb: 4, borderRadius: 4, bgcolor: "#650C08", color: "white", position: "relative", overflow: "hidden", boxShadow: "0 6px 20px rgba(101,12,8,0.15)" }}>
         <Box sx={{ position: "relative", zIndex: 2 }}>
           <Typography variant="h4" sx={{ fontWeight: 800, mb: 1, letterSpacing: "-0.02em" }}>
-            College Administration Panel
+            University Administration Panel
           </Typography>
           <Typography variant="body2" sx={{ opacity: 0.85, maxWidth: 600 }}>
-            Welcome, {user?.first_name || user?.username}! Manage campuses, set up new academic programs, edit stream durations, and define syllabus subjects.
+            Welcome, {user?.first_name || user?.username}! Perform system configuration, create colleges/institutes, manage counsellor arrangements, and administer roles and users.
           </Typography>
         </Box>
         <BusinessIcon sx={{ position: "absolute", right: -20, bottom: -20, fontSize: 180, opacity: 0.08 }} />
@@ -123,7 +110,7 @@ const CollegeDashboard: React.FC = () => {
       {/* Grid of Sections */}
       <Grid container spacing={4}>
         {sections.map((section, index) => (
-          <Grid size={{ xs: 12, sm: 6 }} key={index}>
+          <Grid size={{ xs: 12, sm: 6, md: 4 }} key={index}>
             <Card sx={{ borderRadius: 4, height: "100%", display: "flex", flexDirection: "column", border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
               <CardContent sx={{ p: 4, flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                 <Box>
@@ -155,7 +142,7 @@ const CollegeDashboard: React.FC = () => {
                     "&:hover": { bgcolor: "rgba(101,12,8,0.02)", borderColor: "#7a1d16" },
                   }}
                 >
-                  Manage {section.title.split(" ")[0]}
+                  {section.btnText}
                 </Button>
               </CardContent>
             </Card>
@@ -166,4 +153,4 @@ const CollegeDashboard: React.FC = () => {
   );
 };
 
-export default CollegeDashboard;
+export default AdminDashboard;

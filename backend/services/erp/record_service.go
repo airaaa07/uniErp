@@ -2,7 +2,10 @@ package erp
 
 import (
 	"backend/models"
+	"backend/utils"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -40,8 +43,77 @@ func (s *RecordService) PublicCreateRecord(req models.RecordCreate) (*models.Rec
 		}
 	}
 
-	// Delegate to the normal create path (createdBy = 0 for anonymous public users)
-	return s.CreateRecord(req, 0)
+	var createdByID int64 = 0
+
+	if req.ModuleKey == "inquiry_master" {
+		var firstName, lastName, mobileNo, dobStr string
+		if val, ok := req.Data["inq_fname"]; ok {
+			firstName, _ = val.(string)
+		}
+		if val, ok := req.Data["inq_lname"]; ok {
+			lastName, _ = val.(string)
+		}
+		if val, ok := req.Data["mobile_no"]; ok {
+			mobileNo, _ = val.(string)
+		}
+		if val, ok := req.Data["dob"]; ok {
+			dobStr, _ = val.(string)
+		}
+
+		// Clean mobile number to use as username
+		username := mobileNo
+		if username == "" {
+			username = firstName + "_" + fmt.Sprintf("%d", time.Now().Unix())
+		}
+		email := username + "@university.edu"
+
+		// Parse YYYY-MM-DD to DDMMYYYY
+		password := "student123"
+		if len(dobStr) == 10 {
+			parts := strings.Split(dobStr, "-")
+			if len(parts) == 3 {
+				password = parts[2] + parts[1] + parts[0] // DDMMYYYY
+			}
+		}
+
+		// Check if user already exists
+		var existingID int64
+		err := s.db.QueryRow("SELECT user_id FROM users WHERE username = $1", username).Scan(&existingID)
+		if err == nil {
+			createdByID = existingID
+		} else {
+			// Hash password
+			hashedPassword, err := utils.HashPassword(password)
+			if err != nil {
+				return nil, err
+			}
+
+			// Insert user with force_password_change = true
+			err = s.db.QueryRow(
+				`INSERT INTO users (username, email, password_hash, first_name, last_name, force_password_change)
+				 VALUES ($1, $2, $3, $4, $5, TRUE)
+				 RETURNING user_id`,
+				username, email, hashedPassword, firstName, lastName,
+			).Scan(&createdByID)
+			if err != nil {
+				return nil, err
+			}
+
+			// Assign Student role (ID 8)
+			var roleID int64
+			err = s.db.QueryRow("SELECT role_id FROM roles WHERE role_name = 'Student'").Scan(&roleID)
+			if err == nil && roleID > 0 {
+				_, _ = s.db.Exec("INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", createdByID, roleID)
+			}
+		}
+
+		// Inject back to Data so that frontend can see them
+		req.Data["generated_username"] = username
+		req.Data["generated_password_format"] = "Your Date of Birth in DDMMYYYY format"
+	}
+
+	// Delegate to the normal create path
+	return s.CreateRecord(req, createdByID)
 }
 
 func (s *RecordService) CreateRecord(req models.RecordCreate, createdBy int64) (*models.Record, error) {

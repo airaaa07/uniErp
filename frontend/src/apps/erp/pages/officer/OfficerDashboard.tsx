@@ -22,6 +22,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Divider,
 } from "@mui/material";
 import {
   AssignmentTurnedIn as AssignmentIcon,
@@ -47,6 +48,7 @@ const OfficerDashboard: React.FC = () => {
   const [openDetails, setOpenDetails] = useState(false);
   const [openApproveDialog, setOpenApproveDialog] = useState(false);
   const [comments, setComments] = useState("");
+  const [scholarshipDiscount, setScholarshipDiscount] = useState<number | string>("");
 
   useEffect(() => {
     if (user) {
@@ -98,21 +100,36 @@ const OfficerDashboard: React.FC = () => {
   const handleOpenApprove = (reg: DbRecord) => {
     setSelectedReg(reg);
     setComments("");
+    setScholarshipDiscount("");
     setOpenApproveDialog(true);
   };
 
   const handleApproveConfirm = async (status: "Approved" | "Rejected") => {
     if (!selectedReg) return;
     try {
-      // Update registration details with approval status and comments
+      // Update registration details with approval status, comments and approved discount
       const updatedData = {
         ...selectedReg.data,
         approval_status: status,
         approver_name: `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || user?.username,
         approver_comments: comments,
+        approved_discount: Number(scholarshipDiscount) || 0,
         action_date: new Date().toISOString().split("T")[0],
       };
       await erpRecordAPI.updateRecord(selectedReg.record_id, { data: updatedData });
+      
+      // Update student inquiry status
+      if (selectedReg.data?.reg_inquiry_student_id) {
+        try {
+          const inquiryRes = await erpRecordAPI.getRecord(selectedReg.data.reg_inquiry_student_id);
+          if (inquiryRes.data) {
+            const updatedInq = { ...inquiryRes.data.data, inquiry_status: status };
+            await erpRecordAPI.updateRecord(selectedReg.data.reg_inquiry_student_id, { data: updatedInq });
+          }
+        } catch (inqErr) {
+          console.error("Failed to update student inquiry status:", inqErr);
+        }
+      }
       
       setOpenApproveDialog(false);
       fetchData();
@@ -281,6 +298,38 @@ const OfficerDashboard: React.FC = () => {
                     {selectedReg.data?.entrance_exam_name ? `${selectedReg.data.entrance_exam_name} (${selectedReg.data.entrance_rank_score})` : "N/A"}
                   </Typography>
                 </Grid>
+                <Grid size={{ xs: 12 }}>
+                  <Divider sx={{ my: 1 }} />
+                  <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: "block", mb: 1.5 }}>
+                    UPLOADED CREDENTIALS & MARK SHEETS
+                  </Typography>
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1.2, border: "1px solid #e2e8f0", borderRadius: 2 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>Class 10th Marksheet:</Typography>
+                      <Button size="small" variant="text" sx={{ color: "#650C08", textTransform: "none", fontWeight: 700 }} onClick={() => alert(`Opening Document: ${selectedReg.data?.class_10_marksheet || "class_10_marksheet.pdf"}`)}>
+                        View Document
+                      </Button>
+                    </Box>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1.2, border: "1px solid #e2e8f0", borderRadius: 2 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>Class 12th Marksheet:</Typography>
+                      <Button size="small" variant="text" sx={{ color: "#650C08", textTransform: "none", fontWeight: 700 }} onClick={() => alert(`Opening Document: ${selectedReg.data?.class_12_marksheet || "class_12_marksheet.pdf"}`)}>
+                        View Document
+                      </Button>
+                    </Box>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1.2, border: "1px solid #e2e8f0", borderRadius: 2 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>Photograph File:</Typography>
+                      <Button size="small" variant="text" sx={{ color: "#650C08", textTransform: "none", fontWeight: 700 }} onClick={() => alert(`Opening Image: ${selectedReg.data?.photograph || "photo.jpg"}`)}>
+                        View Photo
+                      </Button>
+                    </Box>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", p: 1.2, border: "1px solid #e2e8f0", borderRadius: 2 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>Signatures File:</Typography>
+                      <Button size="small" variant="text" sx={{ color: "#650C08", textTransform: "none", fontWeight: 700 }} onClick={() => alert(`Opening Image: ${selectedReg.data?.signatures || "signature.jpg"}`)}>
+                        View Signature
+                      </Button>
+                    </Box>
+                  </Box>
+                </Grid>
               </Grid>
             </Box>
           )}
@@ -291,10 +340,18 @@ const OfficerDashboard: React.FC = () => {
       <Dialog open={openApproveDialog} onClose={() => setOpenApproveDialog(false)} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { borderRadius: 4, p: 1 } } }}>
         <DialogTitle sx={{ fontWeight: 800, color: "#650C08" }}>Academic Evaluation Decision</DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              You are evaluating the registration for <strong>{selectedReg?.data?.student_fname} {selectedReg?.data?.student_lname}</strong>. Enter your remarks below.
+          <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 2 }}>
+            <Typography variant="body2" color="text.secondary">
+              You are evaluating the registration for <strong>{selectedReg?.data?.student_fname} {selectedReg?.data?.student_lname}</strong>. Verify document completeness and enter scholarship criteria.
             </Typography>
+            <TextField
+              fullWidth
+              label="Approved Scholarship/Discount (%)"
+              type="number"
+              placeholder="e.g. 15 for 15% discount"
+              value={scholarshipDiscount}
+              onChange={(e) => setScholarshipDiscount(e.target.value)}
+            />
             <TextField
               fullWidth
               multiline
@@ -303,7 +360,6 @@ const OfficerDashboard: React.FC = () => {
               placeholder="Enter details on eligibility check, qualifying score validation, etc."
               value={comments}
               onChange={(e) => setComments(e.target.value)}
-              sx={{ mb: 2 }}
             />
           </Box>
         </DialogContent>

@@ -73,15 +73,16 @@ func (s *UserService) GetUserByID(userID int64) (*models.UserResponse, error) {
 	}
 
 	return &models.UserResponse{
-		UserID:    user.UserID,
-		Username:  user.Username,
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		IsActive:  user.IsActive,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Roles:     roles,
+		UserID:              user.UserID,
+		Username:            user.Username,
+		Email:               user.Email,
+		FirstName:           user.FirstName,
+		LastName:            user.LastName,
+		IsActive:            user.IsActive,
+		ForcePasswordChange: user.ForcePasswordChange,
+		CreatedAt:           user.CreatedAt,
+		UpdatedAt:           user.UpdatedAt,
+		Roles:               roles,
 	}, nil
 }
 
@@ -110,15 +111,16 @@ func (s *UserService) GetAllUsers(search string) ([]models.UserResponse, error) 
 		}
 
 		responses = append(responses, models.UserResponse{
-			UserID:    user.UserID,
-			Username:  user.Username,
-			Email:     user.Email,
-			FirstName: user.FirstName,
-			LastName:  user.LastName,
-			IsActive:  user.IsActive,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-			Roles:     roles,
+			UserID:              user.UserID,
+			Username:            user.Username,
+			Email:               user.Email,
+			FirstName:           user.FirstName,
+			LastName:            user.LastName,
+			IsActive:            user.IsActive,
+			ForcePasswordChange: user.ForcePasswordChange,
+			CreatedAt:           user.CreatedAt,
+			UpdatedAt:           user.UpdatedAt,
+			Roles:               roles,
 		})
 	}
 
@@ -293,16 +295,17 @@ func (s *UserService) GetUsersByCollege(collegeID int64, search string) ([]model
 		}
 
 		responses = append(responses, models.UserResponse{
-			UserID:    user.UserID,
-			Username:  user.Username,
-			Email:     user.Email,
-			FirstName: user.FirstName,
-			LastName:  user.LastName,
-			CollegeID: user.CollegeID,
-			IsActive:  user.IsActive,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-			Roles:     roles,
+			UserID:              user.UserID,
+			Username:            user.Username,
+			Email:               user.Email,
+			FirstName:           user.FirstName,
+			LastName:            user.LastName,
+			CollegeID:           user.CollegeID,
+			IsActive:            user.IsActive,
+			ForcePasswordChange: user.ForcePasswordChange,
+			CreatedAt:           user.CreatedAt,
+			UpdatedAt:           user.UpdatedAt,
+			Roles:               roles,
 		})
 	}
 
@@ -324,17 +327,18 @@ func (s *UserService) GetUserByIDAndCollege(userID int64, collegeID int64) (*mod
 	}
 
 	return &models.UserResponse{
-		UserID:    user.UserID,
-		Username:  user.Username,
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		CollegeID: user.CollegeID,
-		IsActive:  user.IsActive,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Roles:     roles,
-	}, nil
+			UserID:              user.UserID,
+			Username:            user.Username,
+			Email:               user.Email,
+			FirstName:           user.FirstName,
+			LastName:            user.LastName,
+			CollegeID:           user.CollegeID,
+			IsActive:            user.IsActive,
+			ForcePasswordChange: user.ForcePasswordChange,
+			CreatedAt:           user.CreatedAt,
+			UpdatedAt:           user.UpdatedAt,
+			Roles:               roles,
+		}, nil
 }
 
 func (s *UserService) UpdateUserByCollege(userID int64, collegeID int64, req models.UserUpdate) (*models.UserResponse, error) {

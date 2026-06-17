@@ -29,23 +29,10 @@ import {
   People as PeopleIcon,
   Add as AddIcon,
   Edit as EditIcon,
-  Visibility as VisibilityIcon,
   PersonAdd as PersonAddIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthContext';
-import { erpRecordAPI, userAPI } from '../../services/api';
-
-interface User {
-  user_id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  college_id?: number;
-  is_active: boolean;
-  created_at: string;
-  roles: string[];
-}
+import { userAPI } from '../../services/api';
+import type { User } from '../../types';
 
 const availableRoles = [
   'Counsellor',
@@ -56,7 +43,6 @@ const availableRoles = [
 ];
 
 const CollegeUsers: React.FC = () => {
-  const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -108,7 +94,7 @@ const CollegeUsers: React.FC = () => {
       password: '',
       first_name: userToEdit.first_name || '',
       last_name: userToEdit.last_name || '',
-      role: userToEdit.roles?.[0] || 'Counsellor',
+      role: (typeof userToEdit.roles?.[0] === 'string' ? userToEdit.roles?.[0] : userToEdit.roles?.[0]?.role_name) || 'Counsellor',
     });
     setOpenDialog(true);
   };
@@ -239,7 +225,7 @@ const CollegeUsers: React.FC = () => {
                   <TableCell>{u.email}</TableCell>
                   <TableCell>
                     <Chip
-                      label={u.roles?.[0] || 'No Role'}
+                      label={(typeof u.roles?.[0] === 'string' ? u.roles?.[0] : u.roles?.[0]?.role_name) || 'No Role'}
                       size="small"
                       sx={{ fontWeight: 600, borderRadius: 1.5 }}
                     />

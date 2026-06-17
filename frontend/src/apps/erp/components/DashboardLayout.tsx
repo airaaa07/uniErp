@@ -15,6 +15,13 @@ import {
   Avatar,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  TextField,
+  Button,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -32,7 +39,7 @@ import {
   AppRegistration as AppRegistrationIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import { erpRecordAPI } from '../services/api';
+import { erpRecordAPI, authAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DRAWER_WIDTH = 260;
@@ -40,10 +47,47 @@ const DRAWER_WIDTH = 260;
 const DashboardLayout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const { user, logout } = useAuth();
+  const { user, logout, fetchCurrentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [modules, setModules] = useState<any[]>([]);
+
+  // Force Change Password States
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwdError, setPwdError] = useState('');
+  const [pwdLoading, setPwdLoading] = useState(false);
+
+  const handleForcePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError('');
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      setPwdError('All fields are required');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwdError('New password must be at least 6 characters long');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwdError('New passwords do not match');
+      return;
+    }
+
+    try {
+      setPwdLoading(true);
+      await authAPI.changePassword({
+        old_password: oldPassword,
+        new_password: newPassword,
+      });
+      await fetchCurrentUser();
+    } catch (err: any) {
+      setPwdError(err.response?.data?.error || 'Failed to update password. Please check your credentials.');
+    } finally {
+      setPwdLoading(false);
+    }
+  };
 
   const isStudent = user?.roles?.some((role: any) => {
     if (typeof role === 'string') {
@@ -52,17 +96,7 @@ const DashboardLayout: React.FC = () => {
     return role.role_name?.toLowerCase() === 'student';
   }) || false;
 
-  const isSuperAdmin = user?.roles?.some((role: any) => {
-    const name = typeof role === 'string' ? role : role.role_name;
-    return name?.toLowerCase() === 'super admin';
-  }) || false;
 
-  const isUniversityAdmin = user?.roles?.some((role: any) => {
-    const name = typeof role === 'string' ? role : role.role_name;
-    return name?.toLowerCase() === 'university admin';
-  }) || false;
-
-  const isAdmin = isSuperAdmin || isUniversityAdmin;
 
   const isCounsellor = user?.roles?.some((role: any) => {
     const name = typeof role === 'string' ? role : role.role_name;
@@ -522,6 +556,92 @@ const DashboardLayout: React.FC = () => {
           </AnimatePresence>
         </Box>
       </Box>
+
+      {/* Force Change Password Dialog */}
+      <Dialog
+        open={!!user?.force_password_change}
+        onClose={(_, reason) => {
+          // Prevent closing via backdrop click or escape key
+          if (reason !== 'backdropClick' && reason !== 'escapeKeyDown') {
+            // no-op
+          }
+        }}
+        slotProps={{
+          backdrop: {
+            onClick: (e) => e.stopPropagation(),
+          },
+          paper: {
+            sx: { borderRadius: 4, p: 2 }
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: '#650C08', textAlign: 'center', pb: 1 }}>
+          Action Required: Change Password
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
+            For security reasons, you must change your default password before accessing your student portal.
+          </Typography>
+          {pwdError && (
+            <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2 }}>
+              {pwdError}
+            </Alert>
+          )}
+          <Box component="form" onSubmit={handleForcePasswordChange} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <TextField
+              fullWidth
+              label="Current Password"
+              type="password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              placeholder="e.g. your DOB (DDMMYYYY)"
+              required
+            />
+            <TextField
+              fullWidth
+              label="New Password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+            <TextField
+              fullWidth
+              label="Confirm New Password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              disabled={pwdLoading}
+              sx={{
+                bgcolor: '#650C08',
+                color: 'white',
+                py: 1.25,
+                fontWeight: 700,
+                borderRadius: 2.5,
+                textTransform: 'none',
+                '&:hover': { bgcolor: '#7a1d16' }
+              }}
+            >
+              {pwdLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Update Password & Access Portal'}
+            </Button>
+            <Button
+              variant="text"
+              color="error"
+              fullWidth
+              onClick={handleLogout}
+              sx={{ textTransform: 'none', mt: -1 }}
+            >
+              Cancel & Logout
+            </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

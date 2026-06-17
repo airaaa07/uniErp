@@ -38,6 +38,7 @@ import OfficerDashboard from './apps/erp/pages/officer/OfficerDashboard';
 import RegistrarDashboard from './apps/erp/pages/registrar/RegistrarDashboard';
 import CollegeDashboard from './apps/erp/pages/college/CollegeDashboard';
 import CollegeUsers from './apps/erp/pages/college/CollegeUsers';
+import AdminDashboard from './apps/erp/pages/admin/AdminDashboard';
 
 // ================= THEMES =================
 const designerTheme = createTheme({
@@ -177,7 +178,7 @@ function App() {
                       </ProtectedRouteERP>
                     }
                   >
-                    <Route index element={<div className="p-6 text-xl font-semibold text-[#650C08]">Welcome to the University ERP Admissions Funnel.</div>} />
+                    <Route index element={<AdminDashboard />} />
                     <Route path="users" element={<ERPUsers />} />
                     <Route path="modules/:moduleKey" element={<ModuleRecordManager />} />
                   </Route>

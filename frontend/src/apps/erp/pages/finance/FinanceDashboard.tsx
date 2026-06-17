@@ -115,6 +115,19 @@ const FinanceDashboard: React.FC = () => {
       const updatedData = { ...selectedReg.data, approval_status: "Fee Paid" };
       await erpRecordAPI.updateRecord(selectedReg.record_id, { data: updatedData });
       
+      // Update student inquiry status to Fee Paid
+      if (selectedReg.data?.reg_inquiry_student_id) {
+        try {
+          const inquiryRes = await erpRecordAPI.getRecord(selectedReg.data.reg_inquiry_student_id);
+          if (inquiryRes.data) {
+            const updatedInq = { ...inquiryRes.data.data, inquiry_status: "Fee Paid" };
+            await erpRecordAPI.updateRecord(selectedReg.data.reg_inquiry_student_id, { data: updatedInq });
+          }
+        } catch (inqErr) {
+          console.error("Failed to update student inquiry status to Fee Paid:", inqErr);
+        }
+      }
+      
       setOpenVerifyDialog(false);
       fetchData();
     } catch (err) {

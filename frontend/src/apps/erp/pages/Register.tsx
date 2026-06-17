@@ -20,6 +20,7 @@ export default function Register() {
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [referenceOptions, setReferenceOptions] = useState<Record<string, { value: string; label: string }[]>>({});
+  const [createdCredentials, setCreatedCredentials] = useState<{ username: string; passwordFormat: string } | null>(null);
 
   useEffect(() => {
     loadLayout();
@@ -188,10 +189,17 @@ export default function Register() {
         inquiry_status: "Open",
       };
 
-      await publicAPI.createRecord({
+      const response = await publicAPI.createRecord({
         module_key: moduleKey,
         data: payload,
       });
+
+      if (response.data?.data?.generated_username) {
+        setCreatedCredentials({
+          username: response.data.data.generated_username,
+          passwordFormat: response.data.data.generated_password_format || "Your Date of Birth in DDMMYYYY format",
+        });
+      }
 
       // Success setup
       localStorage.removeItem(`inquiryFormData_${moduleKey}`);
@@ -434,6 +442,32 @@ export default function Register() {
                 <p className="text-sm text-gray-500 leading-relaxed mb-8 max-w-md">
                   Thank you for applying. Your admission inquiry has been registered. Our counsellor desk will review your credentials and contact you shortly.
                 </p>
+
+                {createdCredentials && (
+                  <div className="w-full bg-[#650C08]/5 border border-[#650C08]/15 rounded-xl p-5 mb-8 text-left max-w-md mx-auto">
+                    <h4 className="text-sm font-bold text-gray-800 mb-3 border-b border-gray-200 pb-2">
+                      Portal Login Credentials
+                    </h4>
+                    <div className="space-y-2.5 text-xs text-gray-600 font-medium">
+                      <div className="flex justify-between items-center">
+                        <span>Username (Mobile):</span>
+                        <code className="bg-[#650C08]/10 text-[#650C08] px-2 py-0.5 rounded font-mono font-bold">
+                          {createdCredentials.username}
+                        </code>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Password:</span>
+                        <code className="bg-[#650C08]/10 text-[#650C08] px-2 py-0.5 rounded font-mono font-bold">
+                          {createdCredentials.passwordFormat}
+                        </code>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-4 text-center">
+                      Please use these credentials to log in, track your status, and complete fee payments. You will be prompted to change this password on first login.
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
                   <button
                      onClick={handleReset}
