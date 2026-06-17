@@ -62,6 +62,7 @@ export interface Module {
   module_name: string;
   description: string;
   is_active: boolean;
+  is_system?: boolean;
   created_by?: number;
   created_at: string;
   updated_at: string;
