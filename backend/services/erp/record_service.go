@@ -17,6 +17,33 @@ func NewRecordService(db *sqlx.DB) *RecordService {
 	return &RecordService{db: db}
 }
 
+// publicWriteProtected lists fields that the public cannot set on any module.
+// The backend enforces these regardless of what the HTTP body contains.
+var publicWriteProtected = map[string]string{
+	// field_key → forced value for inquiry_master public submissions
+	"inquiry_status": "Open",
+}
+
+// PublicCreateRecord is the server-enforced variant used by the public /records route.
+// It strips any write-protected fields from the client payload and injects the
+// correct server-side defaults so that no HTTP client can bypass them.
+func (s *RecordService) PublicCreateRecord(req models.RecordCreate) (*models.Record, error) {
+	// Ensure data map is initialised
+	if req.Data == nil {
+		req.Data = make(map[string]interface{})
+	}
+
+	// Force server-controlled values — client input is discarded for these keys.
+	if req.ModuleKey == "inquiry_master" {
+		for field, forcedValue := range publicWriteProtected {
+			req.Data[field] = forcedValue
+		}
+	}
+
+	// Delegate to the normal create path (createdBy = 0 for anonymous public users)
+	return s.CreateRecord(req, 0)
+}
+
 func (s *RecordService) CreateRecord(req models.RecordCreate, createdBy int64) (*models.Record, error) {
 	recordID := uuid.New().String()
 

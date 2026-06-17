@@ -74,6 +74,21 @@ func (s *DesignerService) GetAllModules() ([]models.Module, error) {
 	}
 	return modules, nil
 }
+
+// GetDesignerModules returns only modules that designers created (is_system = false).
+// System-seeded tables (inquiry_master, course_master, etc.) are hidden from
+// the designer studio so they cannot be accidentally modified.
+func (s *DesignerService) GetDesignerModules() ([]models.Module, error) {
+	var modules []models.Module
+	err := s.db.Select(
+		&modules,
+		`SELECT * FROM modules WHERE is_system = false ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return modules, nil
+}
 func (s *DesignerService) UpdateModule(moduleKey string, req models.ModuleUpdate) (*models.Module, error) {
 	query := "UPDATE modules SET "
 	args := []interface{}{}

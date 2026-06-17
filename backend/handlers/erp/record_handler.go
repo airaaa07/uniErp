@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 )
 
 type RecordHandler struct {
@@ -28,6 +29,29 @@ func (h *RecordHandler) CreateRecord(c *gin.Context) {
 
 	userID := middleware.GetUserID(c)
 	record, err := h.recordService.CreateRecord(req, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, record)
+}
+
+// PublicCreateRecord is used exclusively by the unauthenticated public route.
+// It delegates to the service-layer enforcer that strips / overwrites
+// any write-protected fields (e.g. inquiry_status) before the DB insert.
+// IMPORTANT: must use ShouldBindBodyWith (not ShouldBindJSON) because the
+// public route middleware already called ShouldBindBodyWith to peek at
+// module_key, consuming the raw body stream. ShouldBindBodyWith reads
+// the cached copy stored in the Gin context.
+func (h *RecordHandler) PublicCreateRecord(c *gin.Context) {
+	var req models.RecordCreate
+	if err := c.ShouldBindBodyWith(&req, binding.JSON); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	record, err := h.recordService.PublicCreateRecord(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

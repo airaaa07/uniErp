@@ -116,8 +116,10 @@ export interface FieldCreate {
   label: string;
   field_key: string;
   field_type: string;
-  field_group_name?: string;
+  /** Key of the system module this field links to (e.g. "course_master").
+   *  Backend auto-computes field_group_name = owningModule__refModule. */
   field_group_module_key?: string;
+  /** column_id from module_columns for the selected column in the ref module. */
   field_group_column_id?: number;
   placeholder?: string;
   help_tooltip?: string;

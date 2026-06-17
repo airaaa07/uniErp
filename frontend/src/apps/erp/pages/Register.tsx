@@ -95,13 +95,16 @@ export default function Register() {
     }
   };
 
+  const HIDDEN_FROM_PUBLIC = ["inquiry_status", "status", "inq_status"];
+
   const validate = (): boolean => {
     if (!layout?.sections) return false;
     const newErrors: Record<string, string> = {};
 
     layout.sections.forEach((section) => {
       section.fields.forEach((field) => {
-        if (!field.is_visible) return;
+        // Skip fields hidden from the public form — they're injected server-side.
+        if (!field.is_visible || HIDDEN_FROM_PUBLIC.includes(field.field_key)) return;
 
         const val = formData[field.field_key];
         const isString = typeof val === "string";
@@ -178,9 +181,16 @@ export default function Register() {
     setSubmitError(null);
 
     try {
+      // Inject system-managed fields before submitting.
+      // inquiry_status is always "Open" on a fresh inquiry — never shown to the student.
+      const payload = {
+        ...formData,
+        inquiry_status: "Open",
+      };
+
       await publicAPI.createRecord({
         module_key: moduleKey,
-        data: formData,
+        data: payload,
       });
 
       // Success setup
@@ -506,8 +516,10 @@ export default function Register() {
                   </div>
                 )}
 
-                {layout.sections.map((section, sIndex) => {
-                  const visibleFields = section.fields.filter(f => f.is_visible);
+                 {layout.sections.map((section, sIndex) => {
+                  const visibleFields = section.fields.filter(
+                    f => f.is_visible && !HIDDEN_FROM_PUBLIC.includes(f.field_key)
+                  );
                   if (visibleFields.length === 0) return null;
 
                   return (

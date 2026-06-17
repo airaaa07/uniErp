@@ -132,7 +132,9 @@ func main() {
 				c.Abort()
 				return
 			}
-			erpRecordHandler.CreateRecord(c)
+			// Use the server-enforced handler — it overwrites write-protected
+			// fields (inquiry_status → "Open") regardless of what was sent.
+			erpRecordHandler.PublicCreateRecord(c)
 		})
 	}
 
@@ -233,7 +235,9 @@ func main() {
 
 		// Module Routes
 		designerGroup.POST("/modules", designerHandler.CreateModule)
-		designerGroup.GET("/modules", designerHandler.GetAllModules)
+		// GetDesignerModules filters out is_system=true (seeded system tables).
+		// Designers only see and manage modules they created.
+		designerGroup.GET("/modules", designerHandler.GetDesignerModules)
 		designerGroup.GET("/modules/:moduleKey", designerHandler.GetModule)
 		designerGroup.PUT("/modules/:moduleKey", designerHandler.UpdateModule)
 		designerGroup.DELETE("/modules/:moduleKey", designerHandler.DeleteModule)

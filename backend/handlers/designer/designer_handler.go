@@ -60,6 +60,18 @@ func (h *DesignerHandler) GetAllModules(c *gin.Context) {
 	c.JSON(http.StatusOK, modules)
 }
 
+// GetDesignerModules returns only designer-created modules (is_system = false).
+// System-seeded tables are hidden so they cannot be accidentally modified.
+func (h *DesignerHandler) GetDesignerModules(c *gin.Context) {
+	modules, err := h.designerService.GetDesignerModules()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, modules)
+}
+
 func (h *DesignerHandler) UpdateModule(c *gin.Context) {
 	moduleKey := c.Param("moduleKey")
 	var req models.ModuleUpdate
