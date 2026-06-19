@@ -202,8 +202,7 @@ func (h *UserHandler) CreateCollegeUser(c *gin.Context) {
 		return
 	}
 
-
-	cid := collegeID.(int64)
+	cid := collegeID.(string)
 	req.CollegeID = &cid
 
 	user, err := h.userService.CreateUser(req)
