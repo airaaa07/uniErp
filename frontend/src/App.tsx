@@ -39,6 +39,8 @@ import RegistrarDashboard from './apps/erp/pages/registrar/RegistrarDashboard';
 import CollegeDashboard from './apps/erp/pages/college/CollegeDashboard';
 import CollegeUsers from './apps/erp/pages/college/CollegeUsers';
 import AdminDashboard from './apps/erp/pages/admin/AdminDashboard';
+import StudentProfile from './apps/erp/pages/student/StudentProfile';
+import StudentHelp from './apps/erp/pages/student/StudentHelp';
 
 // ================= THEMES =================
 const designerTheme = createTheme({
@@ -109,6 +111,26 @@ function App() {
                     }
                   >
                     <Route index element={<StudentDashboard />} />
+                  </Route>
+                  <Route
+                    path="student/profile"
+                    element={
+                      <ProtectedRouteERP>
+                        <DashboardLayoutERP />
+                      </ProtectedRouteERP>
+                    }
+                  >
+                    <Route index element={<StudentProfile />} />
+                  </Route>
+                  <Route
+                    path="student/help"
+                    element={
+                      <ProtectedRouteERP>
+                        <DashboardLayoutERP />
+                      </ProtectedRouteERP>
+                    }
+                  >
+                    <Route index element={<StudentHelp />} />
                   </Route>
                   <Route
                     path="counsellor/dashboard"

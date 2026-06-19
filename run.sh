@@ -115,7 +115,7 @@ start_host() {
   show_status
   echo "Backend logs are written to: backend.log"
   echo "Frontend logs are written to: frontend.log"
-  echo "Access the frontend at: http://localhost:$FRONTEND_PORT or http://192.168.1.14:$FRONTEND_PORT"
+  echo "Access the frontend at: http://localhost:$FRONTEND_PORT or http://192.168.1.17:$FRONTEND_PORT"
 }
 
 start_docker() {

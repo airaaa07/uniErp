@@ -17,7 +17,6 @@ import {
   TableRow,
   Chip,
   Paper,
-  Divider,
 } from "@mui/material";
 import {
   Business as BusinessIcon,

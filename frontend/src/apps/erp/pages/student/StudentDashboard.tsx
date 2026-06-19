@@ -112,13 +112,13 @@ const StudentDashboard: React.FC = () => {
       }
 
       // Fetch counsellors list
-      const usersRes = await userAPI.getAll();
-      const list = usersRes.data || [];
-      const cMap: Record<string, any> = {};
-      list.forEach((u: any) => {
-        cMap[String(u.user_id)] = u;
-      });
-      setCounsellors(cMap);
+      // const usersRes = await userAPI.getAll();
+      // const list = usersRes.data || [];
+      // const cMap: Record<string, any> = {};
+      // list.forEach((u: any) => {
+      //   cMap[String(u.user_id)] = u;
+      // });
+      // setCounsellors(cMap);
 
       // Fetch registrations
       if (activeInq) {
@@ -331,6 +331,55 @@ const StudentDashboard: React.FC = () => {
         </Box>
         <SchoolIcon sx={{ position: "absolute", right: -20, bottom: -20, fontSize: 180, opacity: 0.08 }} />
       </Box>
+
+      {/* Enrollment ID Banner — shown when fully enrolled */}
+      {activeInquiry?.data?.inquiry_status === "Enrolled" && (
+        <Box
+          sx={{
+            mb: 4,
+            p: 4,
+            borderRadius: 4,
+            background: "linear-gradient(135deg, #064e3b 0%, #065f46 100%)",
+            color: "white",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: 3,
+            boxShadow: "0 6px 24px rgba(6,78,59,0.25)",
+            position: "relative",
+            overflow: "hidden",
+          }}
+        >
+          <Box sx={{ position: "relative", zIndex: 2 }}>
+            <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+              🎓 Enrollment Confirmed
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: "-0.02em", mt: 0.5 }}>
+              {activeInquiry.data?.enrollment_id || "Enrollment Processing"}
+            </Typography>
+            <Typography variant="body2" sx={{ opacity: 0.85, mt: 0.5 }}>
+              {institutesMap[activeReg?.data?.reg_institute_id || ""] && `${institutesMap[activeReg?.data?.reg_institute_id || ""]} · `}
+              {streamsMap[activeReg?.data?.reg_stream_id || ""] || "Course Allocated"}
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              px: 3,
+              py: 2,
+              borderRadius: 3,
+              bgcolor: "rgba(255,255,255,0.12)",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              textAlign: "center",
+            }}
+          >
+            <Typography variant="caption" sx={{ opacity: 0.8, fontWeight: 700, display: "block" }}>STATUS</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: "#6ee7b7" }}>✅ Enrolled</Typography>
+          </Box>
+          <SchoolIcon sx={{ position: "absolute", right: -20, bottom: -20, fontSize: 200, opacity: 0.06 }} />
+        </Box>
+      )}
 
       {inquiries.length === 0 ? (
         <Paper sx={{ p: 6, textAlign: "center", borderRadius: 4, border: "1px dashed rgba(0,0,0,0.15)" }}>

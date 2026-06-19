@@ -44,7 +44,6 @@ const StudentProfile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [institutesMap, setInstitutesMap] = useState<Record<string, string>>({});
   const [coursesMap, setCoursesMap] = useState<Record<string, string>>({});
-  const [streamsMap, setStreamsMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (user) fetchProfile();
@@ -53,11 +52,10 @@ const StudentProfile: React.FC = () => {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const [inquiryRes, instRes, courseRes, streamRes] = await Promise.all([
+      const [inquiryRes, instRes, courseRes] = await Promise.all([
         erpRecordAPI.getRecordsByModule("inquiry_master"),
         erpRecordAPI.getRecordsByModule("institute_master"),
         erpRecordAPI.getRecordsByModule("course_master"),
-        erpRecordAPI.getRecordsByModule("streams_master"),
       ]);
 
       const all = inquiryRes.data || [];
@@ -75,12 +73,6 @@ const StudentProfile: React.FC = () => {
         cMap[r.record_id] = r.data?.course_name || r.record_id;
       });
       setCoursesMap(cMap);
-
-      const sMap: Record<string, string> = {};
-      (streamRes.data || []).forEach((r: any) => {
-        sMap[r.record_id] = r.data?.stream_name || r.record_id;
-      });
-      setStreamsMap(sMap);
     } catch (err) {
       console.error("Failed to load student profile:", err);
     } finally {
