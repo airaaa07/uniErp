@@ -3,6 +3,7 @@ package erp
 import (
 	"backend/models"
 	"backend/utils"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -18,6 +19,119 @@ type RecordService struct {
 
 func NewRecordService(db *sqlx.DB) *RecordService {
 	return &RecordService{db: db}
+}
+
+var ModuleRolePermissions = map[string][]string{
+	"inquiry_master":         {"super admin", "university admin", "admin", "college admin", "counsellor", "student"},
+	"counsellor_arrangement": {"super admin", "university admin", "admin"},
+	"counsellor_master":      {"super admin", "university admin", "admin", "student"},
+	"course_master":          {"super admin", "university admin", "admin", "college admin", "admission officer", "student"},
+	"streams_master":         {"super admin", "university admin", "admin", "college admin", "admission officer", "student"},
+	"subject_master":         {"super admin", "university admin", "admin", "college admin", "student"},
+	"registration":           {"super admin", "university admin", "admin", "college admin", "finance controller", "admission officer", "registrar", "student"},
+	"enrollment_master":      {"super admin", "university admin", "admin", "college admin", "registrar", "student"},
+	"hostel_allotment":       {"super admin", "university admin", "admin", "college admin", "registrar"},
+	"transport_allotment":    {"super admin", "university admin", "admin", "college admin", "registrar"},
+	"fee_master":             {"super admin", "university admin", "admin", "college admin", "finance controller","student"},
+	"registration_fee":       {"super admin", "university admin", "admin", "college admin", "finance controller"},
+	"institute_master":       {"super admin", "university admin", "admin", "college admin", "counsellor", "student"},
+}
+
+func (s *RecordService) getUserRolesAndCollege(userID int64) ([]string, string, error) {
+	if userID == 0 {
+		return nil, "", nil
+	}
+
+	var roles []string
+	err := s.db.Select(&roles, `
+		SELECT LOWER(r.role_name)
+		FROM roles r
+		INNER JOIN user_roles ur ON r.role_id = ur.role_id
+		WHERE ur.user_id = $1
+	`, userID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var collegeID sql.NullString
+	err = s.db.Get(&collegeID, "SELECT college_id FROM users WHERE user_id = $1", userID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var cID string = ""
+	if collegeID.Valid {
+		cID = collegeID.String
+	}
+
+	return roles, cID, nil
+}
+
+func (s *RecordService) checkModuleAccess(userID int64, moduleKey string) (bool, []string, string, error) {
+	if userID == 0 {
+		publicModules := map[string]bool{
+			"inquiry_master":    true,
+			"course_master":     true,
+			"stream_master":     true,
+			"streams_master":    true,
+			"counsellor_master": true,
+			"institute_master":  true,
+			"fee_master":        true,
+			"registration":      true,
+			"enrollment":        true,
+			"inquiry_status":    true,
+		}
+		if publicModules[moduleKey] {
+			return true, nil, "", nil
+		}
+		return false, nil, "", fmt.Errorf("public access to module %s is denied", moduleKey)
+	}
+
+	roles, collegeID, err := s.getUserRolesAndCollege(userID)
+	if err != nil {
+		return false, nil, "", err
+	}
+
+	isAdmin := false
+	for _, r := range roles {
+		if r == "super admin" || r == "university admin" || r == "admin" || r == "designer" {
+			isAdmin = true
+			break
+		}
+	}
+
+	if isAdmin {
+		return true, roles, collegeID, nil
+	}
+
+	allowedRoles, exists := ModuleRolePermissions[moduleKey]
+	if !exists {
+		for _, r := range roles {
+			if r == "college admin" {
+				return true, roles, collegeID, nil
+			}
+		}
+		return false, nil, "", fmt.Errorf("module %s is restricted", moduleKey)
+	}
+
+	hasRole := false
+	for _, r := range roles {
+		for _, ar := range allowedRoles {
+			if r == ar {
+				hasRole = true
+				break
+			}
+		}
+		if hasRole {
+			break
+		}
+	}
+
+	if !hasRole {
+		return false, nil, "", fmt.Errorf("access denied to module %s for current roles", moduleKey)
+	}
+
+	return true, roles, collegeID, nil
 }
 
 // publicWriteProtected lists fields that the public cannot set on any module.
@@ -112,11 +226,12 @@ func (s *RecordService) PublicCreateRecord(req models.RecordCreate) (*models.Rec
 		req.Data["generated_password_format"] = "Your Date of Birth in DDMMYYYY format"
 	}
 
-	// Delegate to the normal create path
-	return s.CreateRecord(req, createdByID)
+	// Delegate to the normal create path with skipAccessCheck=true
+	// (public endpoints don't need role-based access control since they're for unauthenticated users)
+	return s.CreateRecordWithSkipAccess(req, createdByID)
 }
 
-func (s *RecordService) CreateRecord(req models.RecordCreate, createdBy int64) (*models.Record, error) {
+func (s *RecordService) CreateRecordWithSkipAccess(req models.RecordCreate, createdBy int64) (*models.Record, error) {
 	recordID := uuid.New().String()
 
 	dataJSON, err := json.Marshal(req.Data)
@@ -166,7 +281,64 @@ func (s *RecordService) CreateRecord(req models.RecordCreate, createdBy int64) (
 	return &record, nil
 }
 
-func (s *RecordService) GetRecord(recordID string) (*models.Record, error) {
+func (s *RecordService) CreateRecord(req models.RecordCreate, createdBy int64) (*models.Record, error) {
+	if createdBy > 0 {
+		allowed, _, _, err := s.checkModuleAccess(createdBy, req.ModuleKey)
+		if err != nil || !allowed {
+			return nil, fmt.Errorf("forbidden: %v", err)
+		}
+	}
+
+	recordID := uuid.New().String()
+
+	dataJSON, err := json.Marshal(req.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	var record models.Record
+	var rawData []byte
+
+	err = s.db.QueryRow(
+		`INSERT INTO records (
+			record_id,
+			module_key,
+			data,
+			created_by
+		)
+		VALUES ($1, $2, $3::jsonb, $4)
+		RETURNING
+			record_id,
+			module_key,
+			data,
+			created_by,
+			created_at`,
+		recordID,
+		req.ModuleKey,
+		dataJSON,
+		createdBy,
+	).Scan(
+		&record.RecordID,
+		&record.ModuleKey,
+		&rawData,
+		&record.CreatedBy,
+		&record.CreatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(rawData) > 0 {
+		if err := json.Unmarshal(rawData, &record.Data); err != nil {
+			return nil, err
+		}
+	}
+
+	return &record, nil
+}
+
+func (s *RecordService) getRawRecord(recordID string) (*models.Record, error) {
 	type recordRow struct {
 		RecordID  string    `db:"record_id"`
 		ModuleKey string    `db:"module_key"`
@@ -197,7 +369,101 @@ func (s *RecordService) GetRecord(recordID string) (*models.Record, error) {
 	}, nil
 }
 
-func (s *RecordService) GetRecordsByModule(moduleKey string) ([]models.Record, error) {
+func (s *RecordService) GetRecord(recordID string, userID int64) (*models.Record, error) {
+	record, err := s.getRawRecord(recordID)
+	if err != nil {
+		return nil, err
+	}
+
+	allowed, roles, collegeID, err := s.checkModuleAccess(userID, record.ModuleKey)
+	if err != nil || !allowed {
+		return nil, fmt.Errorf("forbidden: %v", err)
+	}
+
+	isCounsellorOnly := false
+	isCollegeAdminOnly := false
+	for _, r := range roles {
+		if r == "counsellor" {
+			isCounsellorOnly = true
+		}
+		if r == "college admin" {
+			isCollegeAdminOnly = true
+		}
+	}
+	for _, r := range roles {
+		if r == "super admin" || r == "university admin" || r == "admin" {
+			isCounsellorOnly = false
+			isCollegeAdminOnly = false
+			break
+		}
+	}
+
+	if isCounsellorOnly && record.ModuleKey == "inquiry_master" {
+		if fmt.Sprintf("%v", record.Data["counsellor_id"]) != fmt.Sprintf("%d", userID) {
+			return nil, fmt.Errorf("forbidden: record does not belong to you")
+		}
+	} else if isCollegeAdminOnly && collegeID != "" {
+		if record.ModuleKey == "registration" {
+			instID := fmt.Sprintf("%v", record.Data["reg_institute_id"])
+			if instID == "" || instID == "<nil>" {
+				instID = fmt.Sprintf("%v", record.Data["institute_id"])
+			}
+			if instID != collegeID {
+				return nil, fmt.Errorf("forbidden: record does not belong to your college")
+			}
+		} else if record.ModuleKey == "inquiry_master" {
+			instID := fmt.Sprintf("%v", record.Data["institute_id"])
+			if instID == "" || instID == "<nil>" {
+				instID = fmt.Sprintf("%v", record.Data["reg_institute_id"])
+			}
+			if instID != collegeID {
+				// Fallback check: check if a registration record exists matching this college
+				var belongs bool
+				err := s.db.Get(&belongs, `
+					SELECT EXISTS(
+						SELECT 1 FROM records 
+						WHERE module_key = 'registration' 
+						  AND data->>'reg_inquiry_student_id' = $1
+						  AND (data->>'reg_institute_id' = $2 OR data->>'institute_id' = $2)
+					)
+				`, record.RecordID, collegeID)
+				if err != nil || !belongs {
+					return nil, fmt.Errorf("forbidden: record does not belong to your college")
+				}
+			}
+		} else if record.ModuleKey == "enrollment_master" {
+			regID := fmt.Sprintf("%v", record.Data["enroll_registration_id"])
+			if regID == "" || regID == "<nil>" {
+				regID = fmt.Sprintf("%v", record.Data["regn_id"])
+			}
+			var belongs bool
+			err := s.db.Get(&belongs, `
+				SELECT EXISTS(
+					SELECT 1 FROM records 
+					WHERE record_id = $1 AND module_key = 'registration' 
+					  AND (data->>'reg_institute_id' = $2 OR data->>'institute_id' = $2)
+				)
+			`, regID, collegeID)
+			if err != nil || !belongs {
+				return nil, fmt.Errorf("forbidden: enrollment does not belong to your college")
+			}
+		} else if record.ModuleKey == "fee_master" || record.ModuleKey == "registration_fee" || record.ModuleKey == "hostel_master" || record.ModuleKey == "transport_master" {
+			instID := fmt.Sprintf("%v", record.Data["institute_id"])
+			if instID != collegeID {
+				return nil, fmt.Errorf("forbidden: record does not belong to your college")
+			}
+		}
+	}
+
+	return record, nil
+}
+
+func (s *RecordService) GetRecordsByModule(moduleKey string, userID int64) ([]models.Record, error) {
+	allowed, roles, collegeID, err := s.checkModuleAccess(userID, moduleKey)
+	if err != nil || !allowed {
+		return nil, fmt.Errorf("forbidden: %v", err)
+	}
+
 	type recordRow struct {
 		RecordID  string    `db:"record_id"`
 		ModuleKey string    `db:"module_key"`
@@ -208,33 +474,112 @@ func (s *RecordService) GetRecordsByModule(moduleKey string) ([]models.Record, e
 
 	var rows []recordRow
 
-	err := s.db.Select(
-		&rows,
-		`SELECT record_id,
-		        module_key,
-		        data,
-		        created_by,
-		        created_at
-		   FROM records
-		  WHERE module_key = $1
-		  ORDER BY created_at DESC`,
-		moduleKey,
-	)
+	isCounsellorOnly := false
+	isCollegeAdminOnly := false
+
+	for _, r := range roles {
+		if r == "counsellor" {
+			isCounsellorOnly = true
+		}
+		if r == "college admin" {
+			isCollegeAdminOnly = true
+		}
+	}
+	for _, r := range roles {
+		if r == "super admin" || r == "university admin" || r == "admin" {
+			isCounsellorOnly = false
+			isCollegeAdminOnly = false
+			break
+		}
+	}
+
+	if isCounsellorOnly && moduleKey == "inquiry_master" {
+		err = s.db.Select(
+			&rows,
+			`SELECT record_id, module_key, data, created_by, created_at
+			   FROM records
+			  WHERE module_key = $1 AND data->>'counsellor_id' = $2
+			  ORDER BY created_at DESC`,
+			moduleKey, fmt.Sprintf("%d", userID),
+		)
+	} else if isCollegeAdminOnly && collegeID != "" {
+		if moduleKey == "registration" {
+			err = s.db.Select(
+				&rows,
+				`SELECT record_id, module_key, data, created_by, created_at
+				   FROM records
+				  WHERE module_key = $1 AND (data->>'reg_institute_id' = $2 OR data->>'institute_id' = $2)
+				  ORDER BY created_at DESC`,
+				moduleKey, collegeID,
+			)
+		} else if moduleKey == "inquiry_master" {
+			err = s.db.Select(
+				&rows,
+				`SELECT record_id, module_key, data, created_by, created_at
+				   FROM records
+				  WHERE module_key = $1 AND (
+				    data->>'institute_id' = $2
+				    OR data->>'reg_institute_id' = $2
+				    OR record_id::text IN (
+				      SELECT data->>'reg_inquiry_student_id' FROM records WHERE module_key = 'registration' AND (data->>'reg_institute_id' = $2 OR data->>'institute_id' = $2)
+				    )
+				  )
+				  ORDER BY created_at DESC`,
+				moduleKey, collegeID,
+			)
+		} else if moduleKey == "enrollment_master" {
+			err = s.db.Select(
+				&rows,
+				`SELECT record_id, module_key, data, created_by, created_at
+				   FROM records
+				  WHERE module_key = $1 AND data->>'enroll_registration_id' IN (
+				  	SELECT record_id FROM records WHERE module_key = 'registration' AND (data->>'reg_institute_id' = $2 OR data->>'institute_id' = $2)
+				  )
+				  ORDER BY created_at DESC`,
+				moduleKey, collegeID,
+			)
+		} else if moduleKey == "fee_master" || moduleKey == "registration_fee" || moduleKey == "hostel_master" || moduleKey == "transport_master" {
+			err = s.db.Select(
+				&rows,
+				`SELECT record_id, module_key, data, created_by, created_at
+				   FROM records
+				  WHERE module_key = $1 AND data->>'institute_id' = $2
+				  ORDER BY created_at DESC`,
+				moduleKey, collegeID,
+			)
+		} else {
+			err = s.db.Select(
+				&rows,
+				`SELECT record_id, module_key, data, created_by, created_at
+				   FROM records
+				  WHERE module_key = $1
+				  ORDER BY created_at DESC`,
+				moduleKey,
+			)
+		}
+	} else {
+		err = s.db.Select(
+			&rows,
+			`SELECT record_id, module_key, data, created_by, created_at
+			   FROM records
+			  WHERE module_key = $1
+			  ORDER BY created_at DESC`,
+			moduleKey,
+		)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
 	records := make([]models.Record, 0, len(rows))
-
 	for _, row := range rows {
 		var data map[string]interface{}
-
 		if len(row.Data) > 0 {
 			if err := json.Unmarshal(row.Data, &data); err != nil {
 				return nil, err
 			}
 		}
-
 		records = append(records, models.Record{
 			RecordID:  row.RecordID,
 			ModuleKey: row.ModuleKey,
@@ -243,11 +588,33 @@ func (s *RecordService) GetRecordsByModule(moduleKey string) ([]models.Record, e
 			CreatedAt: row.CreatedAt,
 		})
 	}
-
 	return records, nil
 }
 
-func (s *RecordService) UpdateRecord(recordID string, req models.RecordUpdate) (*models.Record, error) {
+func (s *RecordService) UpdateRecord(recordID string, req models.RecordUpdate, userID int64) (*models.Record, error) {
+	record, err := s.GetRecord(recordID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	_, roles, _, _ := s.checkModuleAccess(userID, record.ModuleKey)
+	isCounsellorOnly := false
+	for _, r := range roles {
+		if r == "counsellor" {
+			isCounsellorOnly = true
+		}
+	}
+	for _, r := range roles {
+		if r == "super admin" || r == "university admin" || r == "admin" {
+			isCounsellorOnly = false
+			break
+		}
+	}
+
+	if isCounsellorOnly && record.ModuleKey == "inquiry_master" {
+		req.Data["counsellor_id"] = record.Data["counsellor_id"]
+	}
+
 	dataJSON, err := json.Marshal(req.Data)
 	if err != nil {
 		return nil, err
@@ -261,15 +628,38 @@ func (s *RecordService) UpdateRecord(recordID string, req models.RecordUpdate) (
 		return nil, err
 	}
 
-	return s.GetRecord(recordID)
+	return s.GetRecord(recordID, userID)
 }
 
-func (s *RecordService) DeleteRecord(recordID string) error {
-	_, err := s.db.Exec("DELETE FROM records WHERE record_id = $1", recordID)
+func (s *RecordService) DeleteRecord(recordID string, userID int64) error {
+	record, err := s.GetRecord(recordID, userID)
+	if err != nil {
+		return err
+	}
+
+	_, roles, _, _ := s.checkModuleAccess(userID, record.ModuleKey)
+	isAuthorizedToDelete := false
+	for _, r := range roles {
+		if r == "super admin" || r == "university admin" || r == "admin" || r == "college admin" || r == "designer" {
+			isAuthorizedToDelete = true
+			break
+		}
+	}
+
+	if !isAuthorizedToDelete {
+		return fmt.Errorf("forbidden: only administrators can delete records")
+	}
+
+	_, err = s.db.Exec("DELETE FROM records WHERE record_id = $1", recordID)
 	return err
 }
 
-func (s *RecordService) SearchRecords(moduleKey string, searchTerm string) ([]models.Record, error) {
+func (s *RecordService) SearchRecords(moduleKey string, searchTerm string, userID int64) ([]models.Record, error) {
+	allowed, roles, collegeID, err := s.checkModuleAccess(userID, moduleKey)
+	if err != nil || !allowed {
+		return nil, fmt.Errorf("forbidden: %v", err)
+	}
+
 	type recordRow struct {
 		RecordID  string    `db:"record_id"`
 		ModuleKey string    `db:"module_key"`
@@ -278,15 +668,100 @@ func (s *RecordService) SearchRecords(moduleKey string, searchTerm string) ([]mo
 		CreatedAt time.Time `db:"created_at"`
 	}
 	var rows []recordRow
-	var err error
+	searchPattern := "%" + searchTerm + "%"
 
-	if searchTerm != "" {
-		searchPattern := "%" + searchTerm + "%"
-		err = s.db.Select(&rows,
-			"SELECT record_id, module_key, data, created_by, created_at FROM records WHERE module_key = $1 AND data::text ILIKE $2 ORDER BY created_at DESC",
-			moduleKey, searchPattern)
+	isCounsellorOnly := false
+	isCollegeAdminOnly := false
+
+	for _, r := range roles {
+		if r == "counsellor" {
+			isCounsellorOnly = true
+		}
+		if r == "college admin" {
+			isCollegeAdminOnly = true
+		}
+	}
+	for _, r := range roles {
+		if r == "super admin" || r == "university admin" || r == "admin" {
+			isCounsellorOnly = false
+			isCollegeAdminOnly = false
+			break
+		}
+	}
+
+	if isCounsellorOnly && moduleKey == "inquiry_master" {
+		err = s.db.Select(
+			&rows,
+			`SELECT record_id, module_key, data, created_by, created_at
+			   FROM records
+			  WHERE module_key = $1 AND data->>'counsellor_id' = $2 AND data::text ILIKE $3
+			  ORDER BY created_at DESC`,
+			moduleKey, fmt.Sprintf("%d", userID), searchPattern,
+		)
+	} else if isCollegeAdminOnly && collegeID != "" {
+		if moduleKey == "registration" {
+			err = s.db.Select(
+				&rows,
+				`SELECT record_id, module_key, data, created_by, created_at
+				   FROM records
+				  WHERE module_key = $1 AND (data->>'reg_institute_id' = $2 OR data->>'institute_id' = $2) AND data::text ILIKE $3
+				  ORDER BY created_at DESC`,
+				moduleKey, collegeID, searchPattern,
+			)
+		} else if moduleKey == "inquiry_master" {
+			err = s.db.Select(
+				&rows,
+				`SELECT record_id, module_key, data, created_by, created_at
+				   FROM records
+				  WHERE module_key = $1 AND (
+				    data->>'institute_id' = $2 
+				    OR data->>'reg_institute_id' = $2
+				    OR record_id IN (
+				      SELECT data->>'reg_inquiry_student_id' FROM records WHERE module_key = 'registration' AND (data->>'reg_institute_id' = $2 OR data->>'institute_id' = $2)
+				    )
+				  ) AND data::text ILIKE $3
+				  ORDER BY created_at DESC`,
+				moduleKey, collegeID, searchPattern,
+			)
+		} else if moduleKey == "enrollment_master" {
+			err = s.db.Select(
+				&rows,
+				`SELECT record_id, module_key, data, created_by, created_at
+				   FROM records
+				  WHERE module_key = $1 AND data->>'enroll_registration_id' IN (
+				  	SELECT record_id FROM records WHERE module_key = 'registration' AND (data->>'reg_institute_id' = $2 OR data->>'institute_id' = $2)
+				  ) AND data::text ILIKE $3
+				  ORDER BY created_at DESC`,
+				moduleKey, collegeID, searchPattern,
+			)
+		} else if moduleKey == "fee_master" || moduleKey == "registration_fee" || moduleKey == "hostel_master" || moduleKey == "transport_master" {
+			err = s.db.Select(
+				&rows,
+				`SELECT record_id, module_key, data, created_by, created_at
+				   FROM records
+				  WHERE module_key = $1 AND data->>'institute_id' = $2 AND data::text ILIKE $3
+				  ORDER BY created_at DESC`,
+				moduleKey, collegeID, searchPattern,
+			)
+		} else {
+			err = s.db.Select(
+				&rows,
+				`SELECT record_id, module_key, data, created_by, created_at
+				   FROM records
+				  WHERE module_key = $1 AND data::text ILIKE $2
+				  ORDER BY created_at DESC`,
+				moduleKey, searchPattern,
+			)
+		}
 	} else {
-		err = s.db.Select(&rows, "SELECT record_id, module_key, data, created_by, created_at FROM records WHERE module_key = $1 ORDER BY created_at DESC", moduleKey)
+		err = s.db.Select(
+			&rows,
+			`SELECT record_id, module_key, data, created_by, created_at
+			   FROM records
+			  WHERE module_key = $1 AND data::text ILIKE $2
+			  ORDER BY created_at DESC`,
+			moduleKey, searchPattern,
+		)
 	}
 
 	if err != nil {

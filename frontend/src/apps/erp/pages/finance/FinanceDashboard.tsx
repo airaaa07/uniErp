@@ -95,7 +95,11 @@ const FinanceDashboard: React.FC = () => {
       case "Approved":
         return { bg: "rgba(6, 182, 212, 0.08)", text: "#0891b2" };
       case "Fee Paid":
+        return { bg: "rgba(16, 185, 129, 0.08)", text: "#10b981" };
+      case "Admission Fee Paid":
         return { bg: "rgba(245, 158, 11, 0.08)", text: "#d97706" };
+      case "Admission Fee Verified":
+        return { bg: "rgba(16, 185, 129, 0.08)", text: "#10b981" };
       default:
         return { bg: "rgba(101, 12, 8, 0.08)", text: "#650C08" };
     }
@@ -114,23 +118,32 @@ const FinanceDashboard: React.FC = () => {
   const handleVerifyConfirm = async () => {
     if (!selectedReg) return;
     try {
-      // Transition status to Fee Paid
-      const updatedData = { ...selectedReg.data, approval_status: "Fee Paid" };
-      await erpRecordAPI.updateRecord(selectedReg.record_id, { data: updatedData });
+      const currentStatus = selectedReg.data?.approval_status || "Submitted";
+      let nextStatus = "Fee Paid";
+      let nextInqStatus = "Fee Paid";
       
-      // Update student inquiry status to Fee Paid
+      if (currentStatus === "Admission Fee Paid") {
+        nextStatus = "Admission Fee Verified";
+        nextInqStatus = "Admission Fee Verified";
+      }
+
+      // Transition status
+      const updatedData = { ...selectedReg.data, approval_status: nextStatus };
+      await erpRecordAPI.updateRecord(selectedReg.record_id, { data: updatedData });
+
+      // Update student inquiry status
       if (selectedReg.data?.reg_inquiry_student_id) {
         try {
           const inquiryRes = await erpRecordAPI.getRecord(selectedReg.data.reg_inquiry_student_id);
           if (inquiryRes.data) {
-            const updatedInq = { ...inquiryRes.data.data, inquiry_status: "Fee Paid" };
+            const updatedInq = { ...inquiryRes.data.data, inquiry_status: nextInqStatus };
             await erpRecordAPI.updateRecord(selectedReg.data.reg_inquiry_student_id, { data: updatedInq });
           }
         } catch (inqErr) {
-          console.error("Failed to update student inquiry status to Fee Paid:", inqErr);
+          console.error("Failed to update student inquiry status:", inqErr);
         }
       }
-      
+
       setOpenVerifyDialog(false);
       fetchData();
     } catch (err) {
@@ -147,18 +160,21 @@ const FinanceDashboard: React.FC = () => {
   }
 
   // Calculate statistics
-  const pendingVerification = registrations.filter(r => r.data?.approval_status === "Submitted" || !r.data?.approval_status).length;
+  const pendingRegVerification = registrations.filter(r => r.data?.approval_status === "Submitted" || !r.data?.approval_status).length;
+  const pendingTuitionVerification = registrations.filter(r => r.data?.approval_status === "Admission Fee Paid").length;
   const paymentPending = registrations.filter(r => r.data?.approval_status === "Payment Pending").length;
-  const verifiedFees = registrations.filter(r => r.data?.approval_status === "Fee Paid" || r.data?.approval_status === "Approved" || r.data?.approval_status === "Enrolled").length;
+  const verifiedFees = registrations.filter(r => r.data?.approval_status === "Fee Paid" || r.data?.approval_status === "Approved" || r.data?.approval_status === "Admission Fee Verified" || r.data?.approval_status === "Enrolled").length;
 
   const displayedRegs = registrations.filter(r => {
     const status = r.data?.approval_status || "Submitted";
     if (tabValue === 0) {
       return status === "Submitted";
     } else if (tabValue === 1) {
+      return status === "Admission Fee Paid";
+    } else if (tabValue === 2) {
       return status === "Payment Pending";
     } else {
-      return status === "Fee Paid" || status === "Approved" || status === "Enrolled";
+      return status === "Fee Paid" || status === "Approved" || status === "Admission Fee Verified" || status === "Enrolled";
     }
   });
 
@@ -179,7 +195,7 @@ const FinanceDashboard: React.FC = () => {
 
       {/* Finance Stats cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 4, md: 4 }}>
+        <Grid size={{ xs: 12, sm: 3, md: 3 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(245, 158, 11, 0.08)", color: "#d97706" }}>
@@ -192,20 +208,33 @@ const FinanceDashboard: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 4, md: 4 }}>
+        <Grid size={{ xs: 12, sm: 3, md: 3 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(101, 12, 8, 0.08)", color: "#650C08" }}>
                 <AssignmentIcon />
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>PENDING VERIFICATION</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 800 }}>{pendingVerification}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>REGISTRATION PENDING</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>{pendingRegVerification}</Typography>
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 4, md: 4 }}>
+        <Grid size={{ xs: 12, sm: 3, md: 3 }}>
+          <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
+            <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(101, 12, 8, 0.08)", color: "#650C08" }}>
+                <AssignmentIcon />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>TUITION PENDING</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>{pendingTuitionVerification}</Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 3, md: 3 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(16, 185, 129, 0.08)", color: "#10b981" }}>
@@ -227,7 +256,8 @@ const FinanceDashboard: React.FC = () => {
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={tabValue} onChange={(_, val) => setTabValue(val)} textColor="primary" indicatorColor="primary">
-          <Tab label={`Pending Verification (${pendingVerification})`} sx={{ fontWeight: 700 }} />
+          <Tab label={`Registration Fee Pending (${pendingRegVerification})`} sx={{ fontWeight: 700 }} />
+          <Tab label={`Tuition Fee Pending (${pendingTuitionVerification})`} sx={{ fontWeight: 700 }} />
           <Tab label={`Payment Pending (${paymentPending})`} sx={{ fontWeight: 700 }} />
           <Tab label={`Verification History (${verifiedFees})`} sx={{ fontWeight: 700 }} />
         </Tabs>
@@ -252,14 +282,17 @@ const FinanceDashboard: React.FC = () => {
                     {tabValue === 0
                       ? "No registration forms awaiting verification."
                       : tabValue === 1
-                      ? "No candidates currently pending payment."
-                      : "No verification history found."}
+                        ? "No tuition fee payments awaiting verification."
+                        : tabValue === 2
+                          ? "No candidates currently pending payment."
+                          : "No verification history found."}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
               displayedRegs.map((reg) => {
                 const colors = getStatusColor(reg.data?.approval_status || "Submitted");
+                const isTuition = reg.data?.approval_status === "Admission Fee Paid" || reg.data?.approval_status === "Admission Fee Verified";
                 return (
                   <TableRow key={reg.record_id} sx={{ "&:hover": { bgcolor: "rgba(101,12,8,0.01)" } }}>
                     <TableCell sx={{ fontWeight: 600 }}>
@@ -270,8 +303,12 @@ const FinanceDashboard: React.FC = () => {
                       <Typography variant="caption" color="text.secondary">Stream: {streamsMap[reg.data?.reg_stream_id] || "N/A"}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>₹{reg.data?.regn_fee || "0"}</Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>Ref: {reg.data?.regn_pmt_ref || "N/A"}</Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                        ₹{isTuition ? (reg.data?.amount_paid || "0") : (reg.data?.regn_fee || "0")}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>
+                        Ref: {isTuition ? (reg.data?.pmt_tx_ref || "N/A") : (reg.data?.regn_pmt_ref || "N/A")}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip label={reg.data?.approval_status || "Submitted"} size="small" sx={{ fontWeight: 600, bgcolor: colors.bg, color: colors.text, borderRadius: 1.5 }} />
@@ -286,7 +323,7 @@ const FinanceDashboard: React.FC = () => {
                         >
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
-                        {(reg.data?.approval_status === "Submitted" || !reg.data?.approval_status) && (
+                        {(reg.data?.approval_status === "Submitted" || !reg.data?.approval_status || reg.data?.approval_status === "Admission Fee Paid") && (
                           <Button
                             variant="contained"
                             size="small"
@@ -326,11 +363,19 @@ const FinanceDashboard: React.FC = () => {
                 </Grid>
                 <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: "block" }}>PAYMENT AMOUNT</Typography>
-                  <Typography variant="body1" sx={{ fontWeight: 700, color: "#10b981" }}>₹{selectedReg.data?.regn_fee}</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 700, color: "#10b981" }}>
+                    ₹{selectedReg.data?.approval_status === "Admission Fee Paid" || selectedReg.data?.approval_status === "Admission Fee Verified" 
+                      ? selectedReg.data?.amount_paid 
+                      : selectedReg.data?.regn_fee}
+                  </Typography>
                 </Grid>
                 <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: "block" }}>TRANSACTION REFERENCE</Typography>
-                  <Typography variant="body1" sx={{ fontFamily: "monospace", fontWeight: 600 }}>{selectedReg.data?.regn_pmt_ref}</Typography>
+                  <Typography variant="body1" sx={{ fontFamily: "monospace", fontWeight: 600 }}>
+                    {selectedReg.data?.approval_status === "Admission Fee Paid" || selectedReg.data?.approval_status === "Admission Fee Verified" 
+                      ? selectedReg.data?.pmt_tx_ref 
+                      : selectedReg.data?.regn_pmt_ref}
+                  </Typography>
                 </Grid>
                 <Grid size={{ xs: 6 }}>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: "block" }}>COLLEGE</Typography>
@@ -355,8 +400,12 @@ const FinanceDashboard: React.FC = () => {
         <DialogTitle sx={{ fontWeight: 800, color: "#650C08" }}>Confirm Fee Verification</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Are you sure you want to verify the payment reference <strong>{selectedReg?.data?.regn_pmt_ref}</strong> for <strong>₹{selectedReg?.data?.regn_fee}</strong>?
-            This will mark the student's status as "Fee Paid".
+            Are you sure you want to verify the payment reference <strong>
+              {selectedReg?.data?.approval_status === "Admission Fee Paid" ? selectedReg?.data?.pmt_tx_ref : selectedReg?.data?.regn_pmt_ref}
+            </strong> for <strong>
+              ₹{selectedReg?.data?.approval_status === "Admission Fee Paid" ? selectedReg?.data?.amount_paid : selectedReg?.data?.regn_fee}
+            </strong>?
+            This will mark the student's status as "{selectedReg?.data?.approval_status === "Admission Fee Paid" ? "Admission Fee Verified" : "Fee Paid"}".
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

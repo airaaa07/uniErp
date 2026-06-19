@@ -1,16 +1,22 @@
 import { publicAPI, erpRecordAPI, userAPI } from "../services/api";
 
-// Matches a field key to a module or special reference
 export const matchModuleKey = (fieldKey: string, modules: any[]): string | null => {
   const normalizedKey = fieldKey.toLowerCase().replace(/_id$/, "").replace(/_master$/, "").replace(/s$/, "");
   
-  // Find a module that matches this normalized key
-  const match = modules.find((m) => {
+  // First pass: exact normalized match
+  const exactMatch = modules.find((m) => {
     const normMod = m.module_key.toLowerCase().replace(/_master$/, "").replace(/s$/, "");
-    return normMod === normalizedKey || normalizedKey.includes(normMod) || normMod.includes(normalizedKey);
+    return normMod === normalizedKey;
+  });
+  if (exactMatch) return exactMatch.module_key;
+
+  // Second pass: loose match
+  const looseMatch = modules.find((m) => {
+    const normMod = m.module_key.toLowerCase().replace(/_master$/, "").replace(/s$/, "");
+    return normalizedKey.includes(normMod) || normMod.includes(normalizedKey);
   });
   
-  return match ? match.module_key : null;
+  return looseMatch ? looseMatch.module_key : null;
 };
 
 // Fetches options for a field from references

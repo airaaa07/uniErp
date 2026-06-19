@@ -78,6 +78,7 @@ func (s *UserService) GetUserByID(userID int64) (*models.UserResponse, error) {
 		Email:               user.Email,
 		FirstName:           user.FirstName,
 		LastName:            user.LastName,
+		CollegeID:           user.CollegeID,
 		IsActive:            user.IsActive,
 		ForcePasswordChange: user.ForcePasswordChange,
 		CreatedAt:           user.CreatedAt,
@@ -116,6 +117,7 @@ func (s *UserService) GetAllUsers(search string) ([]models.UserResponse, error) 
 			Email:               user.Email,
 			FirstName:           user.FirstName,
 			LastName:            user.LastName,
+			CollegeID:           user.CollegeID,
 			IsActive:            user.IsActive,
 			ForcePasswordChange: user.ForcePasswordChange,
 			CreatedAt:           user.CreatedAt,
@@ -265,7 +267,7 @@ func (s *UserService) GetUserRoles(userID int64) ([]string, error) {
 
 // College-scoped methods for College Admin
 
-func (s *UserService) GetUsersByCollege(collegeID int64, search string) ([]models.UserResponse, error) {
+func (s *UserService) GetUsersByCollege(collegeID string, search string) ([]models.UserResponse, error) {
 	var users []models.User
 	var err error
 
@@ -312,7 +314,7 @@ func (s *UserService) GetUsersByCollege(collegeID int64, search string) ([]model
 	return responses, nil
 }
 
-func (s *UserService) GetUserByIDAndCollege(userID int64, collegeID int64) (*models.UserResponse, error) {
+func (s *UserService) GetUserByIDAndCollege(userID int64, collegeID string) (*models.UserResponse, error) {
 	var user models.User
 	err := s.db.Get(&user,
 		`SELECT * FROM users WHERE user_id = $1 AND college_id = $2`,
@@ -341,7 +343,7 @@ func (s *UserService) GetUserByIDAndCollege(userID int64, collegeID int64) (*mod
 		}, nil
 }
 
-func (s *UserService) UpdateUserByCollege(userID int64, collegeID int64, req models.UserUpdate) (*models.UserResponse, error) {
+func (s *UserService) UpdateUserByCollege(userID int64, collegeID string, req models.UserUpdate) (*models.UserResponse, error) {
 	// First verify user belongs to the college
 	var exists bool
 	err := s.db.QueryRow(
@@ -358,7 +360,7 @@ func (s *UserService) UpdateUserByCollege(userID int64, collegeID int64, req mod
 	return s.UpdateUser(userID, req)
 }
 
-func (s *UserService) ToggleUserStatusByCollege(userID int64, collegeID int64) error {
+func (s *UserService) ToggleUserStatusByCollege(userID int64, collegeID string) error {
 	result, err := s.db.Exec(`
 		UPDATE users
 		SET is_active = NOT is_active,

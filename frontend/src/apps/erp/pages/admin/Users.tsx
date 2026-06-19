@@ -34,12 +34,13 @@ import {
   CheckCircleOutlined,
 } from '@mui/icons-material';
 import Grid from '@mui/material/Grid';
-import { userAPI, roleAPI } from '../../services/api';
+import { userAPI, roleAPI, collegeAPI } from '../../services/api';
 import type { User } from '../../types';
 
 const Users: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<any[]>([]);
+  const [colleges, setColleges] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
@@ -52,11 +53,13 @@ const Users: React.FC = () => {
     first_name: '',
     last_name: '',
     role_id: '' as string | number,
+    college_id: '' as string,
   });
 
   useEffect(() => {
     fetchUsers();
     loadRoles();
+    loadColleges();
   }, [search]);
 
   const fetchUsers = async () => {
@@ -79,6 +82,15 @@ const Users: React.FC = () => {
     }
   };
 
+  const loadColleges = async () => {
+    try {
+      const response = await collegeAPI.getAll();
+      setColleges(response.data || []);
+    } catch (error) {
+      console.error('Error loading colleges:', error);
+    }
+  };
+
   const handleOpenDialog = (user?: User) => {
     if (user) {
       setEditingUser(user);
@@ -89,6 +101,7 @@ const Users: React.FC = () => {
         first_name: user.first_name,
         last_name: user.last_name,
         role_id: user.roles?.[0]?.role_id ?? '',
+        college_id: user.college_id || '',
       });
     } else {
       setEditingUser(null);
@@ -99,6 +112,7 @@ const Users: React.FC = () => {
         first_name: '',
         last_name: '',
         role_id: '',
+        college_id: '',
       });
     }
     setOpenDialog(true);
@@ -111,15 +125,21 @@ const Users: React.FC = () => {
 
   const handleSubmit = async () => {
     try {
+      // Get the selected role name to check if it's College Admin
+      const selectedRole = roles.find(r => r.role_id === Number(formData.role_id));
+      const isCollegeAdmin = selectedRole?.role_name?.toLowerCase() === 'college admin';
+
       if (editingUser) {
         await userAPI.update(editingUser.user_id, {
           ...formData,
           role_id: formData.role_id ? Number(formData.role_id) : null,
+          college_id: isCollegeAdmin ? formData.college_id : undefined,
         });
       } else {
         await userAPI.create({
           ...formData,
           role_id: formData.role_id ? Number(formData.role_id) : null,
+          college_id: isCollegeAdmin ? formData.college_id : undefined,
         });
       }
       handleCloseDialog();
@@ -425,6 +445,32 @@ const Users: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
+
+            {/* Show college dropdown only for College Admin role */}
+            {!editingUser && roles.find(r => r.role_id === Number(formData.role_id))?.role_name?.toLowerCase() === 'college admin' && (
+              <Grid size={{ xs: 12 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel id="dialog-college-label">Assign College</InputLabel>
+                  <Select
+                    labelId="dialog-college-label"
+                    value={formData.college_id}
+                    label="Assign College"
+                    onChange={(e) => setFormData({ ...formData, college_id: e.target.value })}
+                    sx={{ borderRadius: 2 }}
+                    required
+                  >
+                    <MenuItem value="">
+                      <em>Select College</em>
+                    </MenuItem>
+                    {colleges.map((college) => (
+                      <MenuItem key={college.record_id} value={college.record_id}>
+                        {college.data?.inst_name || college.record_id}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            )}
 
             {!editingUser && (
               <Grid size={{ xs: 12 }}>

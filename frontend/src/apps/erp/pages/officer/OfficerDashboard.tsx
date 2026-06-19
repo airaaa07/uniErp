@@ -67,9 +67,11 @@ const OfficerDashboard: React.FC = () => {
       const res = await erpRecordAPI.getRecordsByModule("registration");
       const list = res.data || [];
       // Filter to show only records relevant to the Officer (Fee Paid, Approved, Rejected, or Enrolled)
-      const relevant = list.filter(r => 
-        r.data?.approval_status === "Fee Paid" || 
-        r.data?.approval_status === "Approved" || 
+      const relevant = list.filter(r =>
+        r.data?.approval_status === "Fee Paid" ||
+        r.data?.approval_status === "Approved" ||
+        r.data?.approval_status === "Admission Fee Paid" ||
+        r.data?.approval_status === "Admission Fee Verified" ||
         r.data?.approval_status === "Rejected" ||
         r.data?.approval_status === "Enrolled"
       );
@@ -125,7 +127,7 @@ const OfficerDashboard: React.FC = () => {
         action_date: new Date().toISOString().split("T")[0],
       };
       await erpRecordAPI.updateRecord(selectedReg.record_id, { data: updatedData });
-      
+
       // Update student inquiry status
       if (selectedReg.data?.reg_inquiry_student_id) {
         try {
@@ -138,7 +140,7 @@ const OfficerDashboard: React.FC = () => {
           console.error("Failed to update student inquiry status:", inqErr);
         }
       }
-      
+
       setOpenApproveDialog(false);
       fetchData();
     } catch (err) {
@@ -156,14 +158,24 @@ const OfficerDashboard: React.FC = () => {
 
   // Calculate statistics
   const pendingApprovalsCount = registrations.filter(r => r.data?.approval_status === "Fee Paid").length;
-  const evaluatedCount = registrations.filter(r => r.data?.approval_status === "Approved" || r.data?.approval_status === "Rejected" || r.data?.approval_status === "Enrolled").length;
+  const evaluatedCount = registrations.filter(r =>
+    r.data?.approval_status === "Approved" ||
+    r.data?.approval_status === "Admission Fee Paid" ||
+    r.data?.approval_status === "Admission Fee Verified" ||
+    r.data?.approval_status === "Rejected" ||
+    r.data?.approval_status === "Enrolled"
+  ).length;
 
   const displayedRegs = registrations.filter(r => {
     const status = r.data?.approval_status;
     if (tabValue === 0) {
       return status === "Fee Paid";
     } else {
-      return status === "Approved" || status === "Rejected" || status === "Enrolled";
+      return status === "Approved" ||
+             status === "Admission Fee Paid" ||
+             status === "Admission Fee Verified" ||
+             status === "Rejected" ||
+             status === "Enrolled";
     }
   });
 
@@ -267,15 +279,27 @@ const OfficerDashboard: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip 
-                        label={reg.data?.approval_status || "Fee Paid"} 
-                        size="small" 
-                        sx={{ 
-                          fontWeight: 600, 
-                          bgcolor: reg.data?.approval_status === "Fee Paid" ? "rgba(16, 185, 129, 0.08)" : reg.data?.approval_status === "Rejected" ? "rgba(239, 68, 68, 0.08)" : "rgba(6, 182, 212, 0.08)", 
-                          color: reg.data?.approval_status === "Fee Paid" ? "#10b981" : reg.data?.approval_status === "Rejected" ? "#ef4444" : "#0891b2", 
-                          borderRadius: 1.5 
-                        }} 
+                      <Chip
+                        label={reg.data?.approval_status || "Fee Paid"}
+                        size="small"
+                        sx={{
+                          fontWeight: 600,
+                          bgcolor: reg.data?.approval_status === "Fee Paid" 
+                            ? "rgba(16, 185, 129, 0.08)" 
+                            : reg.data?.approval_status === "Rejected" 
+                              ? "rgba(239, 68, 68, 0.08)" 
+                              : reg.data?.approval_status === "Admission Fee Paid" 
+                                ? "rgba(245, 158, 11, 0.08)" 
+                                : "rgba(6, 182, 212, 0.08)",
+                          color: reg.data?.approval_status === "Fee Paid" 
+                            ? "#10b981" 
+                            : reg.data?.approval_status === "Rejected" 
+                              ? "#ef4444" 
+                              : reg.data?.approval_status === "Admission Fee Paid" 
+                                ? "#d97706" 
+                                : "#0891b2",
+                          borderRadius: 1.5
+                        }}
                       />
                     </TableCell>
                     <TableCell align="right">

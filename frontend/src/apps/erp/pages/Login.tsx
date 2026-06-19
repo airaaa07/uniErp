@@ -14,6 +14,7 @@ export default function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const [formData, setFormData] = useState<LoginForm>({
     username: "",
@@ -23,7 +24,9 @@ export default function Login() {
   // Password Login
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     if (!formData.username || !formData.password) {
+      setError("Please enter username and password");
       toast.error("Please enter username and password");
       return;
     }
@@ -55,7 +58,9 @@ export default function Login() {
         navigate("/admin/dashboard");
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Invalid credentials");
+      const errMsg = err.response?.data?.error || "Invalid username or password. Please try again.";
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }
@@ -111,6 +116,12 @@ export default function Login() {
               <h3 className="text-xl font-bold mb-6">Welcome Back</h3>
 
               {/* Password Login Form */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-3 text-sm mb-5 font-semibold flex items-center gap-2">
+                  <span>⚠️</span>
+                  <span>{error}</span>
+                </div>
+              )}
               <form onSubmit={handlePasswordLogin} className="space-y-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -50,7 +50,7 @@ func RequireCollegeAdminRole(db *sqlx.DB) gin.HandlerFunc {
 
 		// Query the database to check if user has college admin role
 		// Also retrieve the college_id for this admin
-		var collegeID int64
+		var collegeID string
 		err := db.Get(&collegeID, `
 			SELECT u.college_id
 			FROM users u
@@ -75,8 +75,8 @@ func RequireCollegeAdminRole(db *sqlx.DB) gin.HandlerFunc {
 }
 
 // GetUserCollegeID retrieves the college_id associated with a College Admin user
-func GetUserCollegeID(db *sqlx.DB, userID int64) (int64, error) {
-	var collegeID int64
+func GetUserCollegeID(db *sqlx.DB, userID int64) (string, error) {
+	var collegeID string
 	err := db.Get(&collegeID, `
 		SELECT college_id
 		FROM users

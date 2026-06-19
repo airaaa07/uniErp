@@ -132,60 +132,60 @@ const DashboardLayout: React.FC = () => {
 
   const menuItems: NavItem[] = isStudent
     ? [
-        { text: 'My Application', icon: <DashboardIcon />, path: '/student/dashboard' },
-        { text: 'My Profile', icon: <PersonIcon />, path: '/student/profile' },
-        { text: 'Help & Contact', icon: <HelpIcon />, path: '/student/help' },
-      ]
+      { text: 'My Application', icon: <DashboardIcon />, path: '/student/dashboard' },
+      { text: 'My Profile', icon: <PersonIcon />, path: '/student/profile' },
+      { text: 'Help & Contact', icon: <HelpIcon />, path: '/student/help' },
+    ]
     : isCounsellor
-    ? [
+      ? [
         { text: 'Counsellor Dashboard', icon: <DashboardIcon />, path: '/counsellor/dashboard' },
       ]
-    : isFinance
-    ? [
-        { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance/dashboard' },
-      ]
-    : isOfficer
-    ? [
-        { text: 'Admission Officer Dashboard', icon: <DashboardIcon />, path: '/officer/dashboard' },
-      ]
-    : isRegistrar
-    ? [
-        { text: 'Registrar Dashboard', icon: <DashboardIcon />, path: '/registrar/dashboard' },
-      ]
-    : isCollegeAdmin
-    ? [
-        { text: 'College Dashboard', icon: <DashboardIcon />, path: '/college/dashboard' },
-        { type: 'header', text: 'ACADEMICS' } as SectionHeader,
-        { text: 'Courses Catalogue', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
-        { text: 'Streams / Branches', icon: <ClassIcon />, path: '/admin/dashboard/modules/streams_master' },
-        { text: 'Subjects & Syllabus', icon: <BookIcon />, path: '/admin/dashboard/modules/subject_master' },
-        { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
-        { text: 'Student Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
-        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
-        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
-        { type: 'header', text: 'FINANCE' } as SectionHeader,
-        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
-        { type: 'header', text: 'PEOPLE' } as SectionHeader,
-        { text: 'College Staff / Users', icon: <PeopleIcon />, path: '/college/users' },
-      ]
-    : [
-        // University Admin / Super Admin — organized sections
-        { text: 'Admin Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' },
-        { type: 'header', text: 'ORGANISATION' } as SectionHeader,
-        { text: 'Colleges & Institutes', icon: <BusinessIcon />, path: '/admin/dashboard/modules/institute_master' },
-        { text: 'Counsellor Allocations', icon: <HandshakeIcon />, path: '/admin/dashboard/modules/counsellor_arrangement' },
-        { text: 'Counsellors Directory', icon: <SupportAgentIcon />, path: '/admin/dashboard/modules/counsellor_master' },
-        { type: 'header', text: 'ACADEMICS' } as SectionHeader,
-        { text: 'Courses Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
-        { text: 'Streams Catalog', icon: <ClassIcon />, path: '/admin/dashboard/modules/streams_master' },
-        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
-        { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
-        { text: 'Admissions & Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
-        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
-        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
-        { type: 'header', text: 'PEOPLE' } as SectionHeader,
-        { text: 'User Administration', icon: <PeopleIcon />, path: '/admin/dashboard/users' },
-      ];
+      : isFinance
+        ? [
+          { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance/dashboard' },
+        ]
+        : isOfficer
+          ? [
+            { text: 'Admission Officer Dashboard', icon: <DashboardIcon />, path: '/officer/dashboard' },
+          ]
+          : isRegistrar
+            ? [
+              { text: 'Registrar Dashboard', icon: <DashboardIcon />, path: '/registrar/dashboard' },
+            ]
+            : isCollegeAdmin
+              ? [
+                { text: 'College Dashboard', icon: <DashboardIcon />, path: '/college/dashboard' },
+                { type: 'header', text: 'ACADEMICS' } as SectionHeader,
+                { text: 'Courses Catalogue', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
+                { text: 'Streams / Branches', icon: <ClassIcon />, path: '/admin/dashboard/modules/streams_master' },
+                { text: 'Subjects & Syllabus', icon: <BookIcon />, path: '/admin/dashboard/modules/subject_master' },
+                { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
+                { text: 'Student Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
+                { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+                { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
+                { type: 'header', text: 'FINANCE' } as SectionHeader,
+                { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
+                { type: 'header', text: 'PEOPLE' } as SectionHeader,
+                { text: 'College Staff / Users', icon: <PeopleIcon />, path: '/college/users' },
+              ]
+              : [
+                // University Admin / Super Admin — organized sections
+                { text: 'Admin Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' },
+                { type: 'header', text: 'ORGANISATION' } as SectionHeader,
+                { text: 'Colleges & Institutes', icon: <BusinessIcon />, path: '/admin/dashboard/modules/institute_master' },
+                { text: 'Counsellor Allocations', icon: <HandshakeIcon />, path: '/admin/dashboard/modules/counsellor_arrangement' },
+                { text: 'Counsellors Directory', icon: <SupportAgentIcon />, path: '/admin/dashboard/modules/counsellor_master' },
+                { type: 'header', text: 'ACADEMICS' } as SectionHeader,
+                { text: 'Courses Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
+                { text: 'Streams Catalog', icon: <ClassIcon />, path: '/admin/dashboard/modules/streams_master' },
+                { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
+                { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
+                { text: 'Admissions & Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
+                { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+                { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
+                { type: 'header', text: 'PEOPLE' } as SectionHeader,
+                { text: 'User Administration', icon: <PeopleIcon />, path: '/admin/dashboard/users' },
+              ];
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -238,7 +238,7 @@ const DashboardLayout: React.FC = () => {
           University ERP
         </Typography>
       </Toolbar>
-      
+
       <List sx={{ px: 2, flexGrow: 1, overflowY: 'auto' }}>
         {menuItems.map((item, idx) => {
           // Section header — render as a non-clickable label
@@ -298,7 +298,7 @@ const DashboardLayout: React.FC = () => {
                     }
                   }}
                 />
-                
+
                 {isSelected && (
                   <Box
                     component={motion.div}
@@ -314,7 +314,7 @@ const DashboardLayout: React.FC = () => {
                     }}
                   />
                 )}
-                
+
                 {isSelected && (
                   <Box
                     component={motion.div}
@@ -336,7 +336,7 @@ const DashboardLayout: React.FC = () => {
           );
         })}
       </List>
-      
+
       <Box sx={{ p: 2, borderTop: '1px solid rgba(15, 23, 42, 0.06)' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1 }}>
           <Avatar

@@ -61,9 +61,9 @@ const RegistrarDashboard: React.FC = () => {
       // Fetch registrations
       const res = await erpRecordAPI.getRecordsByModule("registration");
       const list = res.data || [];
-      // Filter for approved and enrolled registrations
+      // Filter for fee-verified and enrolled registrations
       const relevant = list.filter(r => 
-        r.data?.approval_status === "Approved" || 
+        r.data?.approval_status === "Admission Fee Verified" || 
         r.data?.approval_status === "Enrolled"
       );
       setRegistrations(relevant);
@@ -120,8 +120,8 @@ const RegistrarDashboard: React.FC = () => {
           enrollment_date: new Date().toISOString().split("T")[0],
           enroll_stream_id: selectedReg.data.reg_stream_id || "",
           enroll_stream_part: selectedReg.data.stream_part || 1,
-          enroll_pmt_tx_ref: selectedReg.data.regn_pmt_ref || "",
-          pmt_amount: selectedReg.data.regn_fee || 0,
+          enroll_pmt_tx_ref: selectedReg.data.pmt_tx_ref || selectedReg.data.regn_pmt_ref || "",
+          pmt_amount: selectedReg.data.amount_paid || selectedReg.data.regn_fee || 0,
         }
       });
 
@@ -158,13 +158,13 @@ const RegistrarDashboard: React.FC = () => {
   }
 
   // Calculate statistics
-  const pendingEnrollmentsCount = registrations.filter(r => r.data?.approval_status === "Approved").length;
+  const pendingEnrollmentsCount = registrations.filter(r => r.data?.approval_status === "Admission Fee Verified").length;
   const enrolledCount = registrations.filter(r => r.data?.approval_status === "Enrolled").length;
 
   const displayedRegs = registrations.filter(r => {
     const status = r.data?.approval_status;
     if (tabValue === 0) {
-      return status === "Approved";
+      return status === "Admission Fee Verified";
     } else {
       return status === "Enrolled";
     }
@@ -249,7 +249,7 @@ const RegistrarDashboard: React.FC = () => {
               </TableRow>
             ) : (
               displayedRegs.map((reg) => {
-                const isPending = reg.data?.approval_status === "Approved";
+                const isPending = reg.data?.approval_status === "Admission Fee Verified";
                 return (
                   <TableRow key={reg.record_id} sx={{ "&:hover": { bgcolor: "rgba(101,12,8,0.01)" } }}>
                     <TableCell sx={{ fontWeight: 600 }}>
@@ -265,12 +265,12 @@ const RegistrarDashboard: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <Chip 
-                        label={reg.data?.approval_status || "Approved"} 
+                        label={reg.data?.approval_status || "Admission Fee Verified"} 
                         size="small" 
                         sx={{ 
                           fontWeight: 600, 
-                          bgcolor: reg.data?.approval_status === "Approved" ? "rgba(6, 182, 212, 0.08)" : "rgba(16, 185, 129, 0.08)", 
-                          color: reg.data?.approval_status === "Approved" ? "#0891b2" : "#10b981", 
+                          bgcolor: reg.data?.approval_status === "Admission Fee Verified" ? "rgba(6, 182, 212, 0.08)" : "rgba(16, 185, 129, 0.08)", 
+                          color: reg.data?.approval_status === "Admission Fee Verified" ? "#0891b2" : "#10b981", 
                           borderRadius: 1.5 
                         }} 
                       />

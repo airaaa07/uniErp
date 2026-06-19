@@ -76,14 +76,14 @@ const ModuleRecordManager: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch Layout, records, and all system modules
       const [layoutRes, recordsRes, modulesRes] = await Promise.all([
         erpRecordAPI.getFormLayout(moduleKey),
         erpRecordAPI.getRecordsByModule(moduleKey, search),
         erpRecordAPI.getAllModules()
       ]);
-      
+
       setLayout(layoutRes.data);
       setRecords(recordsRes.data || []);
       const mods = modulesRes.data || [];
@@ -204,7 +204,7 @@ const ModuleRecordManager: React.FC = () => {
     try {
       // Generate unique enrollment number
       const enrollmentNo = `EN2026${Math.floor(100000 + Math.random() * 900000)}`;
-      
+
       // Save Enrollment Record
       await erpRecordAPI.createRecord({
         module_key: "enrollment",
@@ -245,7 +245,7 @@ const ModuleRecordManager: React.FC = () => {
     if (val === undefined || val === null) return "N/A";
     if (typeof val === "boolean") return val ? "Yes" : "No";
     if (Array.isArray(val)) return val.join(", ");
-    
+
     // Resolve dynamic reference label from cache if available
     if (mappedLabels[fieldKey] && mappedLabels[fieldKey][String(val)]) {
       return mappedLabels[fieldKey][String(val)];
@@ -384,7 +384,7 @@ const ModuleRecordManager: React.FC = () => {
             ) : (
               records.map((rec) => {
                 const data = rec.data || {};
-                
+
                 return (
                   <TableRow
                     key={rec.record_id}
@@ -401,7 +401,7 @@ const ModuleRecordManager: React.FC = () => {
                         {formatCellValue(col.field_key, data[col.field_key])}
                       </TableCell>
                     ))}
-                    
+
                     {/* Inquiry Status Badge */}
                     {moduleKey === "inquiry_master" && (
                       <TableCell>
@@ -415,18 +415,18 @@ const ModuleRecordManager: React.FC = () => {
                               data.inquiry_status === "Enrolled"
                                 ? "rgba(16, 185, 129, 0.08)"
                                 : data.inquiry_status === "Registered"
-                                ? "rgba(6, 182, 212, 0.08)"
-                                : data.inquiry_status === "Assigned"
-                                ? "rgba(245, 158, 11, 0.08)"
-                                : "rgba(101, 12, 8, 0.08)",
+                                  ? "rgba(6, 182, 212, 0.08)"
+                                  : data.inquiry_status === "Assigned"
+                                    ? "rgba(245, 158, 11, 0.08)"
+                                    : "rgba(101, 12, 8, 0.08)",
                             color:
                               data.inquiry_status === "Enrolled"
                                 ? "#10b981"
                                 : data.inquiry_status === "Registered"
-                                ? "#0891b2"
-                                : data.inquiry_status === "Assigned"
-                                ? "#d97706"
-                                : "#650C08",
+                                  ? "#0891b2"
+                                  : data.inquiry_status === "Assigned"
+                                    ? "#d97706"
+                                    : "#650C08",
                           }}
                         />
                       </TableCell>
@@ -445,14 +445,14 @@ const ModuleRecordManager: React.FC = () => {
                               data.approval_status === "Enrolled" || data.approval_status === "Approved"
                                 ? "rgba(16, 185, 129, 0.08)"
                                 : data.approval_status === "Rejected"
-                                ? "rgba(239, 68, 68, 0.08)"
-                                : "rgba(245, 158, 11, 0.08)",
+                                  ? "rgba(239, 68, 68, 0.08)"
+                                  : "rgba(245, 158, 11, 0.08)",
                             color:
                               data.approval_status === "Enrolled" || data.approval_status === "Approved"
                                 ? "#10b981"
                                 : data.approval_status === "Rejected"
-                                ? "#ef4444"
-                                : "#d97706",
+                                  ? "#ef4444"
+                                  : "#d97706",
                           }}
                         />
                       </TableCell>
@@ -461,7 +461,7 @@ const ModuleRecordManager: React.FC = () => {
                     {/* Action buttons */}
                     <TableCell align="right">
                       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>
-                        
+
                         {/* Dynamic workflow: Assign Counsellor */}
                         {moduleKey === "inquiry_master" && (
                           <IconButton
@@ -506,7 +506,7 @@ const ModuleRecordManager: React.FC = () => {
                         >
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
-                        
+
                         <IconButton
                           onClick={() => handleOpenEdit(rec)}
                           size="small"
@@ -515,7 +515,7 @@ const ModuleRecordManager: React.FC = () => {
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
-                        
+
                         <IconButton
                           onClick={() => handleDelete(rec.record_id)}
                           size="small"

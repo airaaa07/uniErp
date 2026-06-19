@@ -180,7 +180,7 @@ func (h *UserHandler) GetCollegeUsers(c *gin.Context) {
 	}
 
 	search := c.Query("search")
-	users, err := h.userService.GetUsersByCollege(collegeID.(int64), search)
+	users, err := h.userService.GetUsersByCollege(collegeID.(string), search)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -202,7 +202,7 @@ func (h *UserHandler) CreateCollegeUser(c *gin.Context) {
 		return
 	}
 
-		cid := collegeID.(int64)
+	cid := collegeID.(string)
 	req.CollegeID = &cid
 
 	user, err := h.userService.CreateUser(req)
@@ -227,7 +227,7 @@ func (h *UserHandler) GetCollegeUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userService.GetUserByIDAndCollege(userID, collegeID.(int64))
+	user, err := h.userService.GetUserByIDAndCollege(userID, collegeID.(string))
 	if err != nil {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found in your college"})
@@ -259,7 +259,7 @@ func (h *UserHandler) UpdateCollegeUser(c *gin.Context) {
 		return
 	}
 
-	user, err := h.userService.UpdateUserByCollege(userID, collegeID.(int64), req)
+	user, err := h.userService.UpdateUserByCollege(userID, collegeID.(string), req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -281,7 +281,7 @@ func (h *UserHandler) ToggleCollegeUserStatus(c *gin.Context) {
 		return
 	}
 
-	err = h.userService.ToggleUserStatusByCollege(userID, collegeID.(int64))
+	err = h.userService.ToggleUserStatusByCollege(userID, collegeID.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
