@@ -40,7 +40,6 @@ import {
   Help as HelpIcon,
   Class as ClassIcon,
   Book as BookIcon,
-  TrendingUp as TrendingUpIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/api';
@@ -140,37 +139,18 @@ const DashboardLayout: React.FC = () => {
     : isCounsellor
     ? [
         { text: 'Counsellor Dashboard', icon: <DashboardIcon />, path: '/counsellor/dashboard' },
-        { text: 'Admissions & Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
       ]
     : isFinance
     ? [
         { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance/dashboard' },
-        { type: 'header', text: 'FINANCE' } as SectionHeader,
-        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
-        { text: 'Registration Fees', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/registration_fee' },
-        { type: 'header', text: 'RECORDS' } as SectionHeader,
-        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
-        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
       ]
     : isOfficer
     ? [
         { text: 'Admission Officer Dashboard', icon: <DashboardIcon />, path: '/officer/dashboard' },
-        { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
-        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
-        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
-        { type: 'header', text: 'REFERENCES' } as SectionHeader,
-        { text: 'Courses Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
-        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
       ]
     : isRegistrar
     ? [
         { text: 'Registrar Dashboard', icon: <DashboardIcon />, path: '/registrar/dashboard' },
-        { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
-        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
-        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
-        { type: 'header', text: 'FACILITIES' } as SectionHeader,
-        { text: 'Hostel Allotments', icon: <BusinessIcon />, path: '/admin/dashboard/modules/hostel_allotment' },
-        { text: 'Transport Allotments', icon: <TrendingUpIcon />, path: '/admin/dashboard/modules/transport_allotment' },
       ]
     : isCollegeAdmin
     ? [

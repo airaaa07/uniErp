@@ -37,7 +37,7 @@ import {
   UploadFile as UploadIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../../contexts/AuthContext";
-import { erpRecordAPI, userAPI } from "../../services/api";
+import { erpRecordAPI } from "../../services/api";
 import { fetchReferenceOptions } from "../../utils/referenceLoader";
 import type { DesignerRecord as DbRecord } from "../../types";
 import toast from "react-hot-toast";
@@ -111,14 +111,20 @@ const StudentDashboard: React.FC = () => {
         setCoursesMap(cMap);
       }
 
-      // Fetch counsellors list
-      // const usersRes = await userAPI.getAll();
-      // const list = usersRes.data || [];
-      // const cMap: Record<string, any> = {};
-      // list.forEach((u: any) => {
-      //   cMap[String(u.user_id)] = u;
-      // });
-      // setCounsellors(cMap);
+      // Fetch counsellors list from counsellor_master module
+      try {
+        const cRes = await erpRecordAPI.getRecordsByModule("counsellor_master");
+        const cList = cRes.data || [];
+        const cMap: Record<string, any> = {};
+        cList.forEach((r: any) => {
+          if (r.data) {
+            cMap[String(r.data.counsellor_id)] = r.data;
+          }
+        });
+        setCounsellors(cMap);
+      } catch (err) {
+        console.warn("Failed to load counsellors catalog:", err);
+      }
 
       // Fetch registrations
       if (activeInq) {
@@ -675,17 +681,17 @@ const StudentDashboard: React.FC = () => {
                         fontWeight: 800
                       }}
                     >
-                      {activeCounsellor.first_name?.[0].toUpperCase()}
+                      {(activeCounsellor.first_name || activeCounsellor.counsellor_fname || "C")?.[0].toUpperCase()}
                     </Box>
                     <Typography variant="body1" sx={{ fontWeight: 700, color: "#0f172a" }}>
-                      {activeCounsellor.first_name} {activeCounsellor.last_name}
+                      {activeCounsellor.first_name || activeCounsellor.counsellor_fname} {activeCounsellor.last_name || activeCounsellor.counsellor_lname || ""}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
                       Admissions counsellor
                     </Typography>
                     <Divider sx={{ my: 2 }} />
                     <Typography variant="body2" sx={{ fontWeight: 600, color: "text.primary" }}>
-                      Email: {activeCounsellor.email}
+                      Email: {activeCounsellor.email || `${(activeCounsellor.counsellor_fname || "counsellor").toLowerCase()}@university.edu`}
                     </Typography>
                   </Box>
                 ) : (

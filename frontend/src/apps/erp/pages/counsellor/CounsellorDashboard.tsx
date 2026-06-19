@@ -25,6 +25,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   SupportAgent as SupportAgentIcon,
@@ -43,6 +45,7 @@ const CounsellorDashboard: React.FC = () => {
   const { user } = useAuth();
 
   const [assignedStudents, setAssignedStudents] = useState<DbRecord[]>([]);
+  const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [coursesMap, setCoursesMap] = useState<Record<string, string>>({});
   
@@ -214,6 +217,15 @@ const CounsellorDashboard: React.FC = () => {
   const paymentPendingCount = assignedStudents.filter(s => s.data?.inquiry_status === "Payment Pending").length;
   const enrolledCount = assignedStudents.filter(s => s.data?.inquiry_status === "Enrolled").length;
 
+  const displayedStudents = assignedStudents.filter(s => {
+    const status = s.data?.inquiry_status || "Assigned";
+    if (tabValue === 0) {
+      return status === "Assigned";
+    } else {
+      return status !== "Assigned";
+    }
+  });
+
   return (
     <Container maxWidth="lg" sx={{ py: 1 }}>
       {/* Welcome Banner */}
@@ -290,6 +302,13 @@ const CounsellorDashboard: React.FC = () => {
         Assigned Candidates Directory
       </Typography>
 
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabValue} onChange={(_, val) => setTabValue(val)} textColor="primary" indicatorColor="primary">
+          <Tab label={`Pending Counseling (${assignedOnly})`} sx={{ fontWeight: 700 }} />
+          <Tab label={`Counseling History (${totalAssigned - assignedOnly})`} sx={{ fontWeight: 700 }} />
+        </Tabs>
+      </Box>
+
       <TableContainer component={Paper} sx={{ borderRadius: 4, overflow: "hidden", border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
         <Table>
           <TableHead sx={{ bgcolor: "rgba(0,0,0,0.01)" }}>
@@ -302,16 +321,16 @@ const CounsellorDashboard: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {assignedStudents.length === 0 ? (
+            {displayedStudents.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                   <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-                    No candidates currently assigned to you.
+                    {tabValue === 0 ? "No candidates currently pending counseling." : "No processed counseling history found."}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              assignedStudents.map((student) => {
+              displayedStudents.map((student) => {
                 const colors = getStatusColor(student.data?.inquiry_status || "Assigned");
                 return (
                   <TableRow key={student.record_id} sx={{ "&:hover": { bgcolor: "rgba(101,12,8,0.01)" } }}>

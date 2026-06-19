@@ -23,6 +23,8 @@ import {
   DialogActions,
   TextField,
   Divider,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   AssignmentTurnedIn as AssignmentIcon,
@@ -39,6 +41,7 @@ import type { DesignerRecord as DbRecord } from "../../types";
 const OfficerDashboard: React.FC = () => {
   const { user } = useAuth();
   const [registrations, setRegistrations] = useState<DbRecord[]>([]);
+  const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [institutesMap, setInstitutesMap] = useState<Record<string, string>>({});
   const [streamsMap, setStreamsMap] = useState<Record<string, string>>({});
@@ -63,9 +66,14 @@ const OfficerDashboard: React.FC = () => {
       // Fetch registrations
       const res = await erpRecordAPI.getRecordsByModule("registration");
       const list = res.data || [];
-      // Filter for those that have fees paid
-      const feePaid = list.filter(r => r.data?.approval_status === "Fee Paid");
-      setRegistrations(feePaid);
+      // Filter to show only records relevant to the Officer (Fee Paid, Approved, Rejected, or Enrolled)
+      const relevant = list.filter(r => 
+        r.data?.approval_status === "Fee Paid" || 
+        r.data?.approval_status === "Approved" || 
+        r.data?.approval_status === "Rejected" ||
+        r.data?.approval_status === "Enrolled"
+      );
+      setRegistrations(relevant);
 
       // Load reference Options for translation
       const modulesRes = await erpRecordAPI.getAllModules();
@@ -147,7 +155,17 @@ const OfficerDashboard: React.FC = () => {
   }
 
   // Calculate statistics
-  const pendingApprovalsCount = registrations.length;
+  const pendingApprovalsCount = registrations.filter(r => r.data?.approval_status === "Fee Paid").length;
+  const evaluatedCount = registrations.filter(r => r.data?.approval_status === "Approved" || r.data?.approval_status === "Rejected" || r.data?.approval_status === "Enrolled").length;
+
+  const displayedRegs = registrations.filter(r => {
+    const status = r.data?.approval_status;
+    if (tabValue === 0) {
+      return status === "Fee Paid";
+    } else {
+      return status === "Approved" || status === "Rejected" || status === "Enrolled";
+    }
+  });
 
   return (
     <Container maxWidth="lg" sx={{ py: 1 }}>
@@ -166,15 +184,28 @@ const OfficerDashboard: React.FC = () => {
 
       {/* Stats cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 6 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 6 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(245, 158, 11, 0.08)", color: "#d97706" }}>
                 <PeopleIcon />
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>AWAITING APPROVAL</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>AWAITING EVALUATION</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 800 }}>{pendingApprovalsCount}</Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 6 }}>
+          <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
+            <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(16, 185, 129, 0.08)", color: "#10b981" }}>
+                <CheckCircleIcon />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>EVALUATED HISTORY</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>{evaluatedCount}</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -183,8 +214,15 @@ const OfficerDashboard: React.FC = () => {
 
       {/* Main registrations table */}
       <Typography variant="h6" sx={{ fontWeight: 800, color: "#650C08", mb: 2 }}>
-        Pending Credentials Review Queue
+        Academic Evaluation Directory
       </Typography>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabValue} onChange={(_, val) => setTabValue(val)} textColor="primary" indicatorColor="primary">
+          <Tab label={`Pending Evaluation (${pendingApprovalsCount})`} sx={{ fontWeight: 700 }} />
+          <Tab label={`Evaluation History (${evaluatedCount})`} sx={{ fontWeight: 700 }} />
+        </Tabs>
+      </Box>
 
       <TableContainer component={Paper} sx={{ borderRadius: 4, overflow: "hidden", border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
         <Table>
@@ -193,21 +231,22 @@ const OfficerDashboard: React.FC = () => {
               <TableCell sx={{ fontWeight: 700 }}>Candidate Name</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Academic Details</TableCell>
               <TableCell sx={{ fontWeight: 700 }}>Entrance Exam Score</TableCell>
-              <TableCell sx={{ fontWeight: 700 }}>Verification</TableCell>
+              <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
               <TableCell align="right" sx={{ fontWeight: 700 }}>Review Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {registrations.length === 0 ? (
+            {displayedRegs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                   <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-                    No registrations currently awaiting academic verification.
+                    {tabValue === 0 ? "No registrations currently awaiting academic verification." : "No evaluation history found."}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              registrations.map((reg) => {
+              displayedRegs.map((reg) => {
+                const isPending = reg.data?.approval_status === "Fee Paid";
                 return (
                   <TableRow key={reg.record_id} sx={{ "&:hover": { bgcolor: "rgba(101,12,8,0.01)" } }}>
                     <TableCell sx={{ fontWeight: 600 }}>
@@ -228,7 +267,16 @@ const OfficerDashboard: React.FC = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip label="Payment Verified" size="small" sx={{ fontWeight: 600, bgcolor: "rgba(16, 185, 129, 0.08)", color: "#10b981", borderRadius: 1.5 }} />
+                      <Chip 
+                        label={reg.data?.approval_status || "Fee Paid"} 
+                        size="small" 
+                        sx={{ 
+                          fontWeight: 600, 
+                          bgcolor: reg.data?.approval_status === "Fee Paid" ? "rgba(16, 185, 129, 0.08)" : reg.data?.approval_status === "Rejected" ? "rgba(239, 68, 68, 0.08)" : "rgba(6, 182, 212, 0.08)", 
+                          color: reg.data?.approval_status === "Fee Paid" ? "#10b981" : reg.data?.approval_status === "Rejected" ? "#ef4444" : "#0891b2", 
+                          borderRadius: 1.5 
+                        }} 
+                      />
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
@@ -240,21 +288,23 @@ const OfficerDashboard: React.FC = () => {
                         >
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onClick={() => handleOpenApprove(reg)}
-                          startIcon={<CheckCircleIcon />}
-                          sx={{
-                            borderRadius: 2,
-                            bgcolor: "#650C08",
-                            textTransform: "none",
-                            fontWeight: 600,
-                            "&:hover": { bgcolor: "#7a1d16" },
-                          }}
-                        >
-                          Evaluate Lead
-                        </Button>
+                        {isPending && (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => handleOpenApprove(reg)}
+                            startIcon={<CheckCircleIcon />}
+                            sx={{
+                              borderRadius: 2,
+                              bgcolor: "#650C08",
+                              textTransform: "none",
+                              fontWeight: 600,
+                              "&:hover": { bgcolor: "#7a1d16" },
+                            }}
+                          >
+                            Evaluate Lead
+                          </Button>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>
