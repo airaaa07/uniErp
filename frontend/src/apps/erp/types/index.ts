@@ -5,6 +5,7 @@ export interface User {
   first_name: string;
   last_name: string;
   is_active: boolean;
+  force_password_change?: boolean;
   created_at: string;
   updated_at: string;
   roles?: { role_id: number; role_name: string }[];

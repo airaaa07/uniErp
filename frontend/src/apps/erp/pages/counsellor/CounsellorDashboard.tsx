@@ -20,6 +20,13 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   SupportAgent as SupportAgentIcon,
@@ -32,15 +39,22 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { erpRecordAPI } from "../../services/api";
 import { fetchReferenceOptions } from "../../utils/referenceLoader";
-import DynamicFormRenderer from "../../components/DynamicFormRenderer";
 import type { DesignerRecord as DbRecord } from "../../types";
 
 const CounsellorDashboard: React.FC = () => {
   const { user } = useAuth();
 
   const [assignedStudents, setAssignedStudents] = useState<DbRecord[]>([]);
+  const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [coursesMap, setCoursesMap] = useState<Record<string, string>>({});
+  
+  // Counselor selection options
+  const [institutes, setInstitutes] = useState<{ value: string; label: string }[]>([]);
+  const [streams, setStreams] = useState<{ value: string; label: string }[]>([]);
+  const [selectedInstId, setSelectedInstId] = useState("");
+  const [selectedStreamId, setSelectedStreamId] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   // Dialog States
   const [selectedStudent, setSelectedStudent] = useState<DbRecord | null>(null);
@@ -70,6 +84,7 @@ const CounsellorDashboard: React.FC = () => {
       // Fetch Courses catalog for translation
       const modulesRes = await erpRecordAPI.getAllModules();
       const modulesList = modulesRes.data || [];
+      
       const courseOpts = await fetchReferenceOptions("course_id", modulesList, true);
       if (courseOpts) {
         const cMap: Record<string, string> = {};
@@ -78,6 +93,19 @@ const CounsellorDashboard: React.FC = () => {
         });
         setCoursesMap(cMap);
       }
+
+      // Fetch Institutes
+      const instOpts = await fetchReferenceOptions("reg_institute_id", modulesList, true);
+      if (instOpts) {
+        setInstitutes(instOpts);
+      }
+
+      // Fetch Streams
+      const streamOpts = await fetchReferenceOptions("reg_stream_id", modulesList, true);
+      if (streamOpts) {
+        setStreams(streamOpts);
+      }
+
     } catch (err) {
       console.error("Failed to load counselor dashboard data:", err);
     } finally {
@@ -90,7 +118,14 @@ const CounsellorDashboard: React.FC = () => {
       case "Enrolled":
         return { bg: "rgba(16, 185, 129, 0.08)", text: "#10b981" };
       case "Registered":
+      case "Approved":
         return { bg: "rgba(6, 182, 212, 0.08)", text: "#0891b2" };
+      case "Payment Pending":
+        return { bg: "rgba(59, 130, 246, 0.08)", text: "#3b82f6" };
+      case "Submitted":
+        return { bg: "rgba(168, 85, 247, 0.08)", text: "#a855f7" };
+      case "Fee Paid":
+        return { bg: "rgba(16, 185, 129, 0.08)", text: "#10b981" };
       case "Assigned":
         return { bg: "rgba(245, 158, 11, 0.08)", text: "#d97706" };
       default:
@@ -105,21 +140,67 @@ const CounsellorDashboard: React.FC = () => {
 
   const handleOpenRegister = (student: DbRecord) => {
     setSelectedStudent(student);
+    setSelectedInstId("");
+    setSelectedStreamId("");
     setOpenRegisterDialog(true);
   };
 
-  const handleRegisterSuccess = async () => {
-    if (selectedStudent) {
+  const handleApproveCounseling = async () => {
+    if (!selectedStudent || !selectedInstId || !selectedStreamId) return;
+    try {
+      setSubmitting(true);
+      
+      // Look up registration fee
+      let feeAmount = 1500; // standard default
       try {
-        // Update inquiry status to Registered
-        const updatedData = { ...selectedStudent.data, inquiry_status: "Registered" };
-        await erpRecordAPI.updateRecord(selectedStudent.record_id, { data: updatedData });
-      } catch (err) {
-        console.error("Failed to update status to Registered:", err);
+        const feeRes = await erpRecordAPI.getRecordsByModule("registration_fee");
+        const fees = feeRes.data || [];
+        const match = fees.find(
+          (f) =>
+            String(f.data?.institute_id) === String(selectedInstId) &&
+            String(f.data?.stream_id) === String(selectedStreamId)
+        );
+        if (match && match.data?.fee) {
+          feeAmount = parseFloat(match.data.fee);
+        }
+      } catch (feeErr) {
+        console.warn("Could not load registration fee catalog, using default:", feeErr);
       }
+
+      // 1. Create registration record
+      const regData = {
+        reg_inquiry_student_id: selectedStudent.record_id,
+        student_fname: selectedStudent.data?.inq_fname || "",
+        student_lname: selectedStudent.data?.inq_lname || "",
+        regn_fee: feeAmount,
+        regn_pmt_ref: "", // Blank, to be filled by student
+        reg_institute_id: selectedInstId,
+        reg_stream_id: selectedStreamId,
+        stream_part: 1,
+        reg_class_10_percent: Number(selectedStudent.data?.class_10_percent || 0),
+        reg_class_12_percent: Number(selectedStudent.data?.class_12_percent || 0),
+        approval_status: "Payment Pending",
+      };
+
+      await erpRecordAPI.createRecord({
+        module_key: "registration",
+        data: regData,
+      });
+
+      // 2. Update Inquiry status to Payment Pending
+      const updatedInquiry = {
+        ...selectedStudent.data,
+        inquiry_status: "Payment Pending",
+      };
+      await erpRecordAPI.updateRecord(selectedStudent.record_id, { data: updatedInquiry });
+
+      setOpenRegisterDialog(false);
+      fetchData();
+    } catch (err) {
+      console.error("Failed to approve counseling & request payment:", err);
+    } finally {
+      setSubmitting(false);
     }
-    setOpenRegisterDialog(false);
-    fetchData();
   };
 
   if (loading) {
@@ -133,8 +214,17 @@ const CounsellorDashboard: React.FC = () => {
   // Calculate statistics
   const totalAssigned = assignedStudents.length;
   const assignedOnly = assignedStudents.filter(s => s.data?.inquiry_status === "Assigned" || !s.data?.inquiry_status).length;
-  const registeredCount = assignedStudents.filter(s => s.data?.inquiry_status === "Registered").length;
+  const paymentPendingCount = assignedStudents.filter(s => s.data?.inquiry_status === "Payment Pending").length;
   const enrolledCount = assignedStudents.filter(s => s.data?.inquiry_status === "Enrolled").length;
+
+  const displayedStudents = assignedStudents.filter(s => {
+    const status = s.data?.inquiry_status || "Assigned";
+    if (tabValue === 0) {
+      return status === "Assigned";
+    } else {
+      return status !== "Assigned";
+    }
+  });
 
   return (
     <Container maxWidth="lg" sx={{ py: 1 }}>
@@ -145,7 +235,7 @@ const CounsellorDashboard: React.FC = () => {
             Counselor Admissions Hub
           </Typography>
           <Typography variant="body2" sx={{ opacity: 0.85, maxWidth: 600 }}>
-            Welcome, {user?.first_name || user?.username}! Track and counsel your assigned student leads, submit their academic registration details, and monitor enrollment progress.
+            Welcome, {user?.first_name || user?.username}! Track and counsel your assigned student leads, recommend courses and college programs, and request registration payments.
           </Typography>
         </Box>
         <SupportAgentIcon sx={{ position: "absolute", right: -20, bottom: -20, fontSize: 180, opacity: 0.08 }} />
@@ -153,7 +243,7 @@ const CounsellorDashboard: React.FC = () => {
 
       {/* Counselor Stats cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3.2 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(101, 12, 8, 0.08)", color: "#650C08" }}>
@@ -166,33 +256,33 @@ const CounsellorDashboard: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 2.8 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(245, 158, 11, 0.08)", color: "#d97706" }}>
                 <AssignmentIcon />
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>UNDER COUNSELING</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>IN COUNSELING</Typography>
                 <Typography variant="h5" sx={{ fontWeight: 800 }}>{assignedOnly}</Typography>
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3.0 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(6, 182, 212, 0.08)", color: "#0891b2" }}>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(59, 130, 246, 0.08)", color: "#3b82f6" }}>
                 <PersonAddIcon />
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>REGISTERED</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 800 }}>{registeredCount}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>PAYMENT PENDING</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>{paymentPendingCount}</Typography>
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 3.0 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
               <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(16, 185, 129, 0.08)", color: "#10b981" }}>
@@ -212,6 +302,13 @@ const CounsellorDashboard: React.FC = () => {
         Assigned Candidates Directory
       </Typography>
 
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabValue} onChange={(_, val) => setTabValue(val)} textColor="primary" indicatorColor="primary">
+          <Tab label={`Pending Counseling (${assignedOnly})`} sx={{ fontWeight: 700 }} />
+          <Tab label={`Counseling History (${totalAssigned - assignedOnly})`} sx={{ fontWeight: 700 }} />
+        </Tabs>
+      </Box>
+
       <TableContainer component={Paper} sx={{ borderRadius: 4, overflow: "hidden", border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
         <Table>
           <TableHead sx={{ bgcolor: "rgba(0,0,0,0.01)" }}>
@@ -224,16 +321,16 @@ const CounsellorDashboard: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {assignedStudents.length === 0 ? (
+            {displayedStudents.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                   <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-                    No candidates currently assigned to you.
+                    {tabValue === 0 ? "No candidates currently pending counseling." : "No processed counseling history found."}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              assignedStudents.map((student) => {
+              displayedStudents.map((student) => {
                 const colors = getStatusColor(student.data?.inquiry_status || "Assigned");
                 return (
                   <TableRow key={student.record_id} sx={{ "&:hover": { bgcolor: "rgba(101,12,8,0.01)" } }}>
@@ -274,7 +371,7 @@ const CounsellorDashboard: React.FC = () => {
                               "&:hover": { bgcolor: "#7a1d16" },
                             }}
                           >
-                            Academic Registration
+                            Approve Counseling
                           </Button>
                         )}
                       </Box>
@@ -324,31 +421,65 @@ const CounsellorDashboard: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Registration Dialog */}
-      <Dialog open={openRegisterDialog} onClose={() => setOpenRegisterDialog(false)} maxWidth="md" fullWidth slotProps={{ paper: { sx: { borderRadius: 4, p: 1 } } }}>
-        <DialogTitle sx={{ fontWeight: 800, color: "#650C08" }}>Submit Academic Registration Form</DialogTitle>
+      {/* Approve Counseling & Request Payment Dialog */}
+      <Dialog open={openRegisterDialog} onClose={() => setOpenRegisterDialog(false)} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { borderRadius: 4, p: 1 } } }}>
+        <DialogTitle sx={{ fontWeight: 800, color: "#650C08" }}>Recommend Admission & Request Payment</DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 1 }}>
-            {selectedStudent && (
-              <DynamicFormRenderer
-                moduleKey="registration"
-                initialData={{
-                  reg_inquiry_student_id: selectedStudent.record_id,
-                  student_fname: selectedStudent.data?.inq_fname || "",
-                  student_lname: selectedStudent.data?.inq_lname || "",
-                  regn_fee: 1500, // standard registration fee
-                  regn_pmt_ref: `TXN${Date.now()}`,
-                  approval_status: "Submitted",
-                  stream_part: 1,
-                  reg_class_10_percent: selectedStudent.data?.class_10_percent || 0,
-                  reg_class_12_percent: selectedStudent.data?.class_12_percent || 0,
-                }}
-                onSuccess={handleRegisterSuccess}
-                onCancel={() => setOpenRegisterDialog(false)}
-              />
-            )}
+          <Box sx={{ mt: 2, display: "flex", flexDirection: "column", gap: 3 }}>
+            <Typography variant="body2" color="text.secondary">
+              Select the recommended College/Institute and Stream for <strong>{selectedStudent?.data?.inq_fname} {selectedStudent?.data?.inq_lname}</strong>. This will transition their status to "Payment Pending" and allow the student to complete their registration payment.
+            </Typography>
+
+            <FormControl fullWidth required>
+              <InputLabel>College/Institute</InputLabel>
+              <Select
+                value={selectedInstId}
+                label="College/Institute"
+                onChange={(e) => setSelectedInstId(e.target.value)}
+              >
+                {institutes.map((inst) => (
+                  <MenuItem key={inst.value} value={inst.value}>
+                    {inst.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth required>
+              <InputLabel>Recommended Stream</InputLabel>
+              <Select
+                value={selectedStreamId}
+                label="Recommended Stream"
+                onChange={(e) => setSelectedStreamId(e.target.value)}
+              >
+                {streams.map((stream) => (
+                  <MenuItem key={stream.value} value={stream.value}>
+                    {stream.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={() => setOpenRegisterDialog(false)} color="inherit" disabled={submitting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleApproveCounseling}
+            variant="contained"
+            disabled={!selectedInstId || !selectedStreamId || submitting}
+            sx={{
+              borderRadius: 2,
+              bgcolor: "#650C08",
+              textTransform: "none",
+              fontWeight: 600,
+              "&:hover": { bgcolor: "#7a1d16" },
+            }}
+          >
+            {submitting ? "Processing..." : "Approve & Request Payment"}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Container>
   );

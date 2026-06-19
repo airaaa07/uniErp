@@ -38,6 +38,9 @@ import OfficerDashboard from './apps/erp/pages/officer/OfficerDashboard';
 import RegistrarDashboard from './apps/erp/pages/registrar/RegistrarDashboard';
 import CollegeDashboard from './apps/erp/pages/college/CollegeDashboard';
 import CollegeUsers from './apps/erp/pages/college/CollegeUsers';
+import AdminDashboard from './apps/erp/pages/admin/AdminDashboard';
+import StudentProfile from './apps/erp/pages/student/StudentProfile';
+import StudentHelp from './apps/erp/pages/student/StudentHelp';
 
 // ================= THEMES =================
 const designerTheme = createTheme({
@@ -102,7 +105,7 @@ function App() {
                   <Route
                     path="student/dashboard"
                     element={
-                      <ProtectedRouteERP>
+                      <ProtectedRouteERP allowedRoles={['student']}>
                         <DashboardLayoutERP />
                       </ProtectedRouteERP>
                     }
@@ -110,9 +113,29 @@ function App() {
                     <Route index element={<StudentDashboard />} />
                   </Route>
                   <Route
+                    path="student/profile"
+                    element={
+                      <ProtectedRouteERP allowedRoles={['student']}>
+                        <DashboardLayoutERP />
+                      </ProtectedRouteERP>
+                    }
+                  >
+                    <Route index element={<StudentProfile />} />
+                  </Route>
+                  <Route
+                    path="student/help"
+                    element={
+                      <ProtectedRouteERP allowedRoles={['student']}>
+                        <DashboardLayoutERP />
+                      </ProtectedRouteERP>
+                    }
+                  >
+                    <Route index element={<StudentHelp />} />
+                  </Route>
+                  <Route
                     path="counsellor/dashboard"
                     element={
-                      <ProtectedRouteERP>
+                      <ProtectedRouteERP allowedRoles={['counsellor']}>
                         <DashboardLayoutERP />
                       </ProtectedRouteERP>
                     }
@@ -122,7 +145,7 @@ function App() {
                   <Route
                     path="finance/dashboard"
                     element={
-                      <ProtectedRouteERP>
+                      <ProtectedRouteERP allowedRoles={['finance controller']}>
                         <DashboardLayoutERP />
                       </ProtectedRouteERP>
                     }
@@ -132,7 +155,7 @@ function App() {
                   <Route
                     path="officer/dashboard"
                     element={
-                      <ProtectedRouteERP>
+                      <ProtectedRouteERP allowedRoles={['admission officer']}>
                         <DashboardLayoutERP />
                       </ProtectedRouteERP>
                     }
@@ -142,7 +165,7 @@ function App() {
                   <Route
                     path="registrar/dashboard"
                     element={
-                      <ProtectedRouteERP>
+                      <ProtectedRouteERP allowedRoles={['registrar']}>
                         <DashboardLayoutERP />
                       </ProtectedRouteERP>
                     }
@@ -152,7 +175,7 @@ function App() {
                   <Route
                     path="college/dashboard"
                     element={
-                      <ProtectedRouteERP>
+                      <ProtectedRouteERP allowedRoles={['college admin']}>
                         <DashboardLayoutERP />
                       </ProtectedRouteERP>
                     }
@@ -162,7 +185,7 @@ function App() {
                   <Route
                     path="college/users"
                     element={
-                      <ProtectedRouteERP>
+                      <ProtectedRouteERP allowedRoles={['college admin']}>
                         <DashboardLayoutERP />
                       </ProtectedRouteERP>
                     }
@@ -172,12 +195,12 @@ function App() {
                   <Route
                     path="admin/dashboard"
                     element={
-                      <ProtectedRouteERP>
+                      <ProtectedRouteERP allowedRoles={['super admin', 'university admin', 'admin', 'college admin']}>
                         <DashboardLayoutERP />
                       </ProtectedRouteERP>
                     }
                   >
-                    <Route index element={<div className="p-6 text-xl font-semibold text-[#650C08]">Welcome to the University ERP Admissions Funnel.</div>} />
+                    <Route index element={<AdminDashboard />} />
                     <Route path="users" element={<ERPUsers />} />
                     <Route path="modules/:moduleKey" element={<ModuleRecordManager />} />
                   </Route>

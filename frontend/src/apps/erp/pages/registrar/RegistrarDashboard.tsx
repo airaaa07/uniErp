@@ -21,6 +21,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   School as SchoolIcon,
@@ -36,6 +38,7 @@ import type { DesignerRecord as DbRecord } from "../../types";
 const RegistrarDashboard: React.FC = () => {
   const { user } = useAuth();
   const [registrations, setRegistrations] = useState<DbRecord[]>([]);
+  const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [institutesMap, setInstitutesMap] = useState<Record<string, string>>({});
   const [streamsMap, setStreamsMap] = useState<Record<string, string>>({});
@@ -58,9 +61,12 @@ const RegistrarDashboard: React.FC = () => {
       // Fetch registrations
       const res = await erpRecordAPI.getRecordsByModule("registration");
       const list = res.data || [];
-      // Filter for those that have been approved
-      const approved = list.filter(r => r.data?.approval_status === "Approved");
-      setRegistrations(approved);
+      // Filter for approved and enrolled registrations
+      const relevant = list.filter(r => 
+        r.data?.approval_status === "Approved" || 
+        r.data?.approval_status === "Enrolled"
+      );
+      setRegistrations(relevant);
 
       // Load reference Options for translation
       const modulesRes = await erpRecordAPI.getAllModules();
@@ -152,7 +158,17 @@ const RegistrarDashboard: React.FC = () => {
   }
 
   // Calculate statistics
-  const pendingEnrollmentsCount = registrations.length;
+  const pendingEnrollmentsCount = registrations.filter(r => r.data?.approval_status === "Approved").length;
+  const enrolledCount = registrations.filter(r => r.data?.approval_status === "Enrolled").length;
+
+  const displayedRegs = registrations.filter(r => {
+    const status = r.data?.approval_status;
+    if (tabValue === 0) {
+      return status === "Approved";
+    } else {
+      return status === "Enrolled";
+    }
+  });
 
   return (
     <Container maxWidth="lg" sx={{ py: 1 }}>
@@ -171,10 +187,10 @@ const RegistrarDashboard: React.FC = () => {
 
       {/* Stats cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 6 }}>
+        <Grid size={{ xs: 12, sm: 6, md: 6 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(16, 185, 129, 0.08)", color: "#10b981" }}>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(245, 158, 11, 0.08)", color: "#d97706" }}>
                 <PeopleIcon />
               </Box>
               <Box>
@@ -184,12 +200,32 @@ const RegistrarDashboard: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
+        <Grid size={{ xs: 12, sm: 6, md: 6 }}>
+          <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
+            <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(16, 185, 129, 0.08)", color: "#10b981" }}>
+                <BadgeIcon />
+              </Box>
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>ENROLLED HISTORY</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>{enrolledCount}</Typography>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
       {/* Main registrations table */}
       <Typography variant="h6" sx={{ fontWeight: 800, color: "#650C08", mb: 2 }}>
-        Matriculation Queue (Approved Registrations)
+        Matriculation Queue
       </Typography>
+
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabValue} onChange={(_, val) => setTabValue(val)} textColor="primary" indicatorColor="primary">
+          <Tab label={`Pending Enrollment (${pendingEnrollmentsCount})`} sx={{ fontWeight: 700 }} />
+          <Tab label={`Enrollment History (${enrolledCount})`} sx={{ fontWeight: 700 }} />
+        </Tabs>
+      </Box>
 
       <TableContainer component={Paper} sx={{ borderRadius: 4, overflow: "hidden", border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
         <Table>
@@ -203,16 +239,17 @@ const RegistrarDashboard: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {registrations.length === 0 ? (
+            {displayedRegs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                   <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-                    No candidates currently in the matriculation queue.
+                    {tabValue === 0 ? "No candidates currently awaiting enrollment." : "No enrolled history found."}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              registrations.map((reg) => {
+              displayedRegs.map((reg) => {
+                const isPending = reg.data?.approval_status === "Approved";
                 return (
                   <TableRow key={reg.record_id} sx={{ "&:hover": { bgcolor: "rgba(101,12,8,0.01)" } }}>
                     <TableCell sx={{ fontWeight: 600 }}>
@@ -227,7 +264,16 @@ const RegistrarDashboard: React.FC = () => {
                       <Typography variant="caption" color="text.secondary">Comments: {reg.data?.approver_comments || "Eligible"}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Chip label="Approved" size="small" sx={{ fontWeight: 600, bgcolor: "rgba(6, 182, 212, 0.08)", color: "#0891b2", borderRadius: 1.5 }} />
+                      <Chip 
+                        label={reg.data?.approval_status || "Approved"} 
+                        size="small" 
+                        sx={{ 
+                          fontWeight: 600, 
+                          bgcolor: reg.data?.approval_status === "Approved" ? "rgba(6, 182, 212, 0.08)" : "rgba(16, 185, 129, 0.08)", 
+                          color: reg.data?.approval_status === "Approved" ? "#0891b2" : "#10b981", 
+                          borderRadius: 1.5 
+                        }} 
+                      />
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
@@ -239,21 +285,23 @@ const RegistrarDashboard: React.FC = () => {
                         >
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onClick={() => handleOpenEnroll(reg)}
-                          startIcon={<BadgeIcon />}
-                          sx={{
-                            borderRadius: 2,
-                            bgcolor: "#650C08",
-                            textTransform: "none",
-                            fontWeight: 600,
-                            "&:hover": { bgcolor: "#7a1d16" },
-                          }}
-                        >
-                          Matriculate & Enroll
-                        </Button>
+                        {isPending && (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            onClick={() => handleOpenEnroll(reg)}
+                            startIcon={<BadgeIcon />}
+                            sx={{
+                              borderRadius: 2,
+                              bgcolor: "#650C08",
+                              textTransform: "none",
+                              fontWeight: 600,
+                              "&:hover": { bgcolor: "#7a1d16" },
+                            }}
+                          >
+                            Matriculate & Enroll
+                          </Button>
+                        )}
                       </Box>
                     </TableCell>
                   </TableRow>

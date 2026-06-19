@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
   AppBar,
@@ -15,6 +15,13 @@ import {
   Avatar,
   Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  TextField,
+  Button,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -28,11 +35,14 @@ import {
   Badge as BadgeIcon,
   SupportAgent as SupportAgentIcon,
   Handshake as HandshakeIcon,
-  TableChart as TableChartIcon,
   AppRegistration as AppRegistrationIcon,
+  Person as PersonIcon,
+  Help as HelpIcon,
+  Class as ClassIcon,
+  Book as BookIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
-import { erpRecordAPI } from '../services/api';
+import { authAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const DRAWER_WIDTH = 260;
@@ -40,10 +50,45 @@ const DRAWER_WIDTH = 260;
 const DashboardLayout: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const { user, logout } = useAuth();
+  const { user, logout, fetchCurrentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [modules, setModules] = useState<any[]>([]);
+
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwdError, setPwdError] = useState('');
+  const [pwdLoading, setPwdLoading] = useState(false);
+
+  const handleForcePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdError('');
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      setPwdError('All fields are required');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwdError('New password must be at least 6 characters long');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwdError('New passwords do not match');
+      return;
+    }
+
+    try {
+      setPwdLoading(true);
+      await authAPI.changePassword({
+        old_password: oldPassword,
+        new_password: newPassword,
+      });
+      await fetchCurrentUser();
+    } catch (err: any) {
+      setPwdError(err.response?.data?.error || 'Failed to update password. Please check your credentials.');
+    } finally {
+      setPwdLoading(false);
+    }
+  };
 
   const isStudent = user?.roles?.some((role: any) => {
     if (typeof role === 'string') {
@@ -52,17 +97,7 @@ const DashboardLayout: React.FC = () => {
     return role.role_name?.toLowerCase() === 'student';
   }) || false;
 
-  const isSuperAdmin = user?.roles?.some((role: any) => {
-    const name = typeof role === 'string' ? role : role.role_name;
-    return name?.toLowerCase() === 'super admin';
-  }) || false;
 
-  const isUniversityAdmin = user?.roles?.some((role: any) => {
-    const name = typeof role === 'string' ? role : role.role_name;
-    return name?.toLowerCase() === 'university admin';
-  }) || false;
-
-  const isAdmin = isSuperAdmin || isUniversityAdmin;
 
   const isCounsellor = user?.roles?.some((role: any) => {
     const name = typeof role === 'string' ? role : role.role_name;
@@ -89,63 +124,17 @@ const DashboardLayout: React.FC = () => {
     return name?.toLowerCase() === 'college admin';
   }) || false;
 
-  useEffect(() => {
-    if (user && !isStudent) {
-      fetchModules();
-    }
-  }, [user, isStudent]);
 
-  const fetchModules = async () => {
-    try {
-      const res = await erpRecordAPI.getAllModules();
-      setModules(res.data || []);
-    } catch (err) {
-      console.error("Failed to load sidebar modules:", err);
-    }
-  };
+  // Section header type — rendered as a non-clickable label in drawer
+  type SectionHeader = { type: 'header'; text: string };
+  type MenuItem = { text: string; icon: React.ReactNode; path: string; type?: never };
+  type NavItem = MenuItem | SectionHeader;
 
-  const getModuleMenuItem = (mod: any) => {
-    const key = mod.module_key;
-    let label = mod.module_name || key.replace(/_/g, ' ');
-    let icon = <TableChartIcon />;
-
-    if (key === 'inquiry_master') {
-      label = 'Admissions & Inquiries';
-      icon = <AssignmentIcon />;
-    } else if (key === 'course_master') {
-      label = 'Courses Catalog';
-      icon = <SchoolIcon />;
-    } else if (key === 'institute_master') {
-      label = 'Colleges & Institutes';
-      icon = <BusinessIcon />;
-    } else if (key === 'fee_master') {
-      label = 'Fee Structures';
-      icon = <AttachMoneyIcon />;
-    } else if (key === 'registration') {
-      label = 'Student Registrations';
-      icon = <AppRegistrationIcon />;
-    } else if (key === 'enrollment' || key === 'enrollment_master') {
-      label = 'Student Enrollments';
-      icon = <BadgeIcon />;
-    } else if (key === 'counsellor_master') {
-      label = 'Counsellors Directory';
-      icon = <SupportAgentIcon />;
-    } else if (key === 'counsellor_arrangement') {
-      label = 'Counsellor Allocations';
-      icon = <HandshakeIcon />;
-    }
-
-    return {
-      text: label,
-      icon: icon,
-      path: `/admin/dashboard/modules/${key}`,
-    };
-  };
-
-  const menuItems = isStudent
+  const menuItems: NavItem[] = isStudent
     ? [
-        { text: 'Student Dashboard', icon: <DashboardIcon />, path: '/student/dashboard' },
-        { text: 'Register / New Inquiry', icon: <AssignmentIcon />, path: '/register' }
+        { text: 'My Application', icon: <DashboardIcon />, path: '/student/dashboard' },
+        { text: 'My Profile', icon: <PersonIcon />, path: '/student/profile' },
+        { text: 'Help & Contact', icon: <HelpIcon />, path: '/student/help' },
       ]
     : isCounsellor
     ? [
@@ -154,39 +143,47 @@ const DashboardLayout: React.FC = () => {
     : isFinance
     ? [
         { text: 'Finance Dashboard', icon: <DashboardIcon />, path: '/finance/dashboard' },
-        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
-        { text: 'Registration Fees', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/registration_fee' },
-        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
       ]
     : isOfficer
     ? [
         { text: 'Admission Officer Dashboard', icon: <DashboardIcon />, path: '/officer/dashboard' },
-        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
-        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
       ]
     : isRegistrar
     ? [
         { text: 'Registrar Dashboard', icon: <DashboardIcon />, path: '/registrar/dashboard' },
-        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
-        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
-        { text: 'Hostel Allotments', icon: <BusinessIcon />, path: '/admin/dashboard/modules/hostel_allotment' },
-        { text: 'Transport Allotments', icon: <DashboardIcon />, path: '/admin/dashboard/modules/transport_allotment' },
       ]
     : isCollegeAdmin
     ? [
         { text: 'College Dashboard', icon: <DashboardIcon />, path: '/college/dashboard' },
-        { text: 'Courses Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
-        { text: 'Streams Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/streams_master' },
-        { text: 'Subjects Catalog', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/subject_master' },
-        { text: 'College Users', icon: <PeopleIcon />, path: '/college/users' },
+        { type: 'header', text: 'ACADEMICS' } as SectionHeader,
+        { text: 'Courses Catalogue', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
+        { text: 'Streams / Branches', icon: <ClassIcon />, path: '/admin/dashboard/modules/streams_master' },
+        { text: 'Subjects & Syllabus', icon: <BookIcon />, path: '/admin/dashboard/modules/subject_master' },
+        { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
+        { text: 'Student Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
+        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
+        { type: 'header', text: 'FINANCE' } as SectionHeader,
+        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
+        { type: 'header', text: 'PEOPLE' } as SectionHeader,
+        { text: 'College Staff / Users', icon: <PeopleIcon />, path: '/college/users' },
       ]
     : [
+        // University Admin / Super Admin — organized sections
         { text: 'Admin Dashboard', icon: <DashboardIcon />, path: '/admin/dashboard' },
+        { type: 'header', text: 'ORGANISATION' } as SectionHeader,
         { text: 'Colleges & Institutes', icon: <BusinessIcon />, path: '/admin/dashboard/modules/institute_master' },
         { text: 'Counsellor Allocations', icon: <HandshakeIcon />, path: '/admin/dashboard/modules/counsellor_arrangement' },
-        ...modules
-          .filter(mod => !['institute_master', 'counsellor_arrangement'].includes(mod.module_key))
-          .map(mod => getModuleMenuItem(mod)),
+        { text: 'Counsellors Directory', icon: <SupportAgentIcon />, path: '/admin/dashboard/modules/counsellor_master' },
+        { type: 'header', text: 'ACADEMICS' } as SectionHeader,
+        { text: 'Courses Catalog', icon: <SchoolIcon />, path: '/admin/dashboard/modules/course_master' },
+        { text: 'Streams Catalog', icon: <ClassIcon />, path: '/admin/dashboard/modules/streams_master' },
+        { text: 'Fee Structures', icon: <AttachMoneyIcon />, path: '/admin/dashboard/modules/fee_master' },
+        { type: 'header', text: 'ADMISSIONS' } as SectionHeader,
+        { text: 'Admissions & Inquiries', icon: <AssignmentIcon />, path: '/admin/dashboard/modules/inquiry_master' },
+        { text: 'Student Registrations', icon: <AppRegistrationIcon />, path: '/admin/dashboard/modules/registration' },
+        { text: 'Student Enrollments', icon: <BadgeIcon />, path: '/admin/dashboard/modules/enrollment_master' },
+        { type: 'header', text: 'PEOPLE' } as SectionHeader,
         { text: 'User Administration', icon: <PeopleIcon />, path: '/admin/dashboard/users' },
       ];
 
@@ -243,14 +240,35 @@ const DashboardLayout: React.FC = () => {
       </Toolbar>
       
       <List sx={{ px: 2, flexGrow: 1, overflowY: 'auto' }}>
-        {menuItems.map((item) => {
-          const isSelected = location.pathname === item.path;
+        {menuItems.map((item, idx) => {
+          // Section header — render as a non-clickable label
+          if (item.type === 'header') {
+            return (
+              <Box key={`header-${idx}`} sx={{ px: 1, pt: idx === 0 ? 0.5 : 2, pb: 0.5 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.65rem',
+                    letterSpacing: '0.08em',
+                    color: 'text.disabled',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {item.text}
+                </Typography>
+              </Box>
+            );
+          }
+
+          const navItem = item as { text: string; icon: React.ReactNode; path: string };
+          const isSelected = location.pathname === navItem.path;
           return (
-            <ListItem key={item.text} disablePadding sx={{ mb: 0.5, position: 'relative' }}>
+            <ListItem key={navItem.text} disablePadding sx={{ mb: 0.5, position: 'relative' }}>
               <ListItemButton
                 selected={isSelected}
                 onClick={() => {
-                  navigate(item.path);
+                  navigate(navItem.path);
                   setMobileOpen(false);
                 }}
                 sx={{
@@ -266,10 +284,10 @@ const DashboardLayout: React.FC = () => {
                     transition: 'color 0.2s',
                   }}
                 >
-                  {item.icon}
+                  {navItem.icon}
                 </ListItemIcon>
                 <ListItemText
-                  primary={item.text}
+                  primary={navItem.text}
                   slotProps={{
                     primary: {
                       sx: {
@@ -384,7 +402,7 @@ const DashboardLayout: React.FC = () => {
                 color: 'slate.900',
               }}
             >
-              {menuItems.find((item) => item.path === location.pathname)?.text || 'Dashboard'}
+              {(menuItems.find((item) => item.type !== 'header' && (item as any).path === location.pathname) as any)?.text || 'Dashboard'}
             </Typography>
           </Box>
 
@@ -522,6 +540,92 @@ const DashboardLayout: React.FC = () => {
           </AnimatePresence>
         </Box>
       </Box>
+
+      {/* Force Change Password Dialog */}
+      <Dialog
+        open={!!user?.force_password_change}
+        onClose={(_, reason) => {
+          // Prevent closing via backdrop click or escape key
+          if (reason !== 'backdropClick' && reason !== 'escapeKeyDown') {
+            // no-op
+          }
+        }}
+        slotProps={{
+          backdrop: {
+            onClick: (e) => e.stopPropagation(),
+          },
+          paper: {
+            sx: { borderRadius: 4, p: 2 }
+          }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: '#650C08', textAlign: 'center', pb: 1 }}>
+          Action Required: Change Password
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
+            For security reasons, you must change your default password before accessing your student portal.
+          </Typography>
+          {pwdError && (
+            <Alert severity="error" sx={{ mb: 2.5, borderRadius: 2 }}>
+              {pwdError}
+            </Alert>
+          )}
+          <Box component="form" onSubmit={handleForcePasswordChange} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <TextField
+              fullWidth
+              label="Current Password"
+              type="password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              placeholder="e.g. your DOB (DDMMYYYY)"
+              required
+            />
+            <TextField
+              fullWidth
+              label="New Password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+            />
+            <TextField
+              fullWidth
+              label="Confirm New Password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+            <Button
+              type="submit"
+              variant="contained"
+              fullWidth
+              disabled={pwdLoading}
+              sx={{
+                bgcolor: '#650C08',
+                color: 'white',
+                py: 1.25,
+                fontWeight: 700,
+                borderRadius: 2.5,
+                textTransform: 'none',
+                '&:hover': { bgcolor: '#7a1d16' }
+              }}
+            >
+              {pwdLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Update Password & Access Portal'}
+            </Button>
+            <Button
+              variant="text"
+              color="error"
+              fullWidth
+              onClick={handleLogout}
+              sx={{ textTransform: 'none', mt: -1 }}
+            >
+              Cancel & Logout
+            </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

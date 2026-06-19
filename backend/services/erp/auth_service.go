@@ -69,15 +69,16 @@ func (s *AuthService) Login(req models.LoginRequest, ipAddress, userAgent string
 	}
 
 	userResponse := models.UserResponse{
-		UserID:    user.UserID,
-		Username:  user.Username,
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		IsActive:  user.IsActive,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Roles:     roles,
+		UserID:              user.UserID,
+		Username:            user.Username,
+		Email:               user.Email,
+		FirstName:           user.FirstName,
+		LastName:            user.LastName,
+		IsActive:            user.IsActive,
+		ForcePasswordChange: user.ForcePasswordChange,
+		CreatedAt:           user.CreatedAt,
+		UpdatedAt:           user.UpdatedAt,
+		Roles:               roles,
 	}
 
 	return &models.LoginResponse{
@@ -147,15 +148,16 @@ func (s *AuthService) GetCurrentUser(userID int64) (*models.UserResponse, error)
 	}
 
 	return &models.UserResponse{
-		UserID:    user.UserID,
-		Username:  user.Username,
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		IsActive:  user.IsActive,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		Roles:     roles,
+		UserID:              user.UserID,
+		Username:            user.Username,
+		Email:               user.Email,
+		FirstName:           user.FirstName,
+		LastName:            user.LastName,
+		IsActive:            user.IsActive,
+		ForcePasswordChange: user.ForcePasswordChange,
+		CreatedAt:           user.CreatedAt,
+		UpdatedAt:           user.UpdatedAt,
+		Roles:               roles,
 	}, nil
 }
 
@@ -175,7 +177,7 @@ func (s *AuthService) ChangePassword(userID int64, req models.ChangePasswordRequ
 		return err
 	}
 
-	_, err = s.db.Exec("UPDATE users SET password_hash = $1, updated_at = $2 WHERE user_id = $3",
+	_, err = s.db.Exec("UPDATE users SET password_hash = $1, force_password_change = false, updated_at = $2 WHERE user_id = $3",
 		newPasswordHash, time.Now(), userID)
 	return err
 }

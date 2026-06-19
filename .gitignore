@@ -6,9 +6,11 @@ COMPLETED_FEATURES.md
 ARCHITECTURE_AUDIT_REPORT.md
 docs/
 *.log
-*.sh
+
 *.xlsx
 data_model_inspect.txt
 temp_excel/
 .env
+
+credentials.md
 

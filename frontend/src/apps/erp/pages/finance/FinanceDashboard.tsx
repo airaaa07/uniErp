@@ -21,6 +21,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   AttachMoney as AttachMoneyIcon,
@@ -37,6 +39,7 @@ import type { DesignerRecord as DbRecord } from "../../types";
 const FinanceDashboard: React.FC = () => {
   const { user } = useAuth();
   const [registrations, setRegistrations] = useState<DbRecord[]>([]);
+  const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [institutesMap, setInstitutesMap] = useState<Record<string, string>>({});
   const [streamsMap, setStreamsMap] = useState<Record<string, string>>({});
@@ -115,6 +118,19 @@ const FinanceDashboard: React.FC = () => {
       const updatedData = { ...selectedReg.data, approval_status: "Fee Paid" };
       await erpRecordAPI.updateRecord(selectedReg.record_id, { data: updatedData });
       
+      // Update student inquiry status to Fee Paid
+      if (selectedReg.data?.reg_inquiry_student_id) {
+        try {
+          const inquiryRes = await erpRecordAPI.getRecord(selectedReg.data.reg_inquiry_student_id);
+          if (inquiryRes.data) {
+            const updatedInq = { ...inquiryRes.data.data, inquiry_status: "Fee Paid" };
+            await erpRecordAPI.updateRecord(selectedReg.data.reg_inquiry_student_id, { data: updatedInq });
+          }
+        } catch (inqErr) {
+          console.error("Failed to update student inquiry status to Fee Paid:", inqErr);
+        }
+      }
+      
       setOpenVerifyDialog(false);
       fetchData();
     } catch (err) {
@@ -131,9 +147,20 @@ const FinanceDashboard: React.FC = () => {
   }
 
   // Calculate statistics
-  const totalRegs = registrations.length;
-  const pendingFees = registrations.filter(r => r.data?.approval_status === "Submitted" || !r.data?.approval_status).length;
+  const pendingVerification = registrations.filter(r => r.data?.approval_status === "Submitted" || !r.data?.approval_status).length;
+  const paymentPending = registrations.filter(r => r.data?.approval_status === "Payment Pending").length;
   const verifiedFees = registrations.filter(r => r.data?.approval_status === "Fee Paid" || r.data?.approval_status === "Approved" || r.data?.approval_status === "Enrolled").length;
+
+  const displayedRegs = registrations.filter(r => {
+    const status = r.data?.approval_status || "Submitted";
+    if (tabValue === 0) {
+      return status === "Submitted";
+    } else if (tabValue === 1) {
+      return status === "Payment Pending";
+    } else {
+      return status === "Fee Paid" || status === "Approved" || status === "Enrolled";
+    }
+  });
 
   return (
     <Container maxWidth="lg" sx={{ py: 1 }}>
@@ -155,12 +182,12 @@ const FinanceDashboard: React.FC = () => {
         <Grid size={{ xs: 12, sm: 4, md: 4 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(101, 12, 8, 0.08)", color: "#650C08" }}>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(245, 158, 11, 0.08)", color: "#d97706" }}>
                 <PeopleIcon />
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>TOTAL REGISTRATIONS</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 800 }}>{totalRegs}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>PAYMENT PENDING</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>{paymentPending}</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -168,12 +195,12 @@ const FinanceDashboard: React.FC = () => {
         <Grid size={{ xs: 12, sm: 4, md: 4 }}>
           <Card sx={{ borderRadius: 3, border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
             <CardContent sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(245, 158, 11, 0.08)", color: "#d97706" }}>
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: "rgba(101, 12, 8, 0.08)", color: "#650C08" }}>
                 <AssignmentIcon />
               </Box>
               <Box>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>PENDING VERIFICATION</Typography>
-                <Typography variant="h5" sx={{ fontWeight: 800 }}>{pendingFees}</Typography>
+                <Typography variant="h5" sx={{ fontWeight: 800 }}>{pendingVerification}</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -198,6 +225,14 @@ const FinanceDashboard: React.FC = () => {
         Academic Registration Payment Queue
       </Typography>
 
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={tabValue} onChange={(_, val) => setTabValue(val)} textColor="primary" indicatorColor="primary">
+          <Tab label={`Pending Verification (${pendingVerification})`} sx={{ fontWeight: 700 }} />
+          <Tab label={`Payment Pending (${paymentPending})`} sx={{ fontWeight: 700 }} />
+          <Tab label={`Verification History (${verifiedFees})`} sx={{ fontWeight: 700 }} />
+        </Tabs>
+      </Box>
+
       <TableContainer component={Paper} sx={{ borderRadius: 4, overflow: "hidden", border: "1px solid rgba(0,0,0,0.06)", boxShadow: "none" }}>
         <Table>
           <TableHead sx={{ bgcolor: "rgba(0,0,0,0.01)" }}>
@@ -210,16 +245,20 @@ const FinanceDashboard: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {registrations.length === 0 ? (
+            {displayedRegs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                   <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
-                    No registration forms found in queue.
+                    {tabValue === 0
+                      ? "No registration forms awaiting verification."
+                      : tabValue === 1
+                      ? "No candidates currently pending payment."
+                      : "No verification history found."}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              registrations.map((reg) => {
+              displayedRegs.map((reg) => {
                 const colors = getStatusColor(reg.data?.approval_status || "Submitted");
                 return (
                   <TableRow key={reg.record_id} sx={{ "&:hover": { bgcolor: "rgba(101,12,8,0.01)" } }}>
