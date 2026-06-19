@@ -2,7 +2,7 @@
 -- This allows users to be associated with a specific college
 
 ALTER TABLE users
-ADD COLUMN IF NOT EXISTS college_id BIGINT REFERENCES records(record_id) ON DELETE SET NULL;
+ADD COLUMN IF NOT EXISTS college_id UUID REFERENCES records(record_id) ON DELETE SET NULL;
 
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_users_college_id ON users(college_id);

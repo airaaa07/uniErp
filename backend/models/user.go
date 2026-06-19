@@ -9,7 +9,7 @@ type User struct {
 	PasswordHash        string     `db:"password_hash" json:"-"`
 	FirstName           string     `db:"first_name" json:"first_name"`
 	LastName            string     `db:"last_name" json:"last_name"`
-	CollegeID           *int64     `db:"college_id" json:"college_id"`
+	CollegeID           *string    `db:"college_id" json:"college_id"`
 	IsActive            bool       `db:"is_active" json:"is_active"`
 	ForcePasswordChange bool       `db:"force_password_change" json:"force_password_change"`
 	CreatedAt           time.Time  `db:"created_at" json:"created_at"`
@@ -17,13 +17,13 @@ type User struct {
 }
 
 type UserCreate struct {
-	Username  string `json:"username" binding:"required"`
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=6"`
-	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
-	CollegeID *int64 `json:"college_id"`
-	RoleID    int64  `json:"role_id"`
+	Username  string  `json:"username" binding:"required"`
+	Email     string  `json:"email" binding:"required,email"`
+	Password  string  `json:"password" binding:"required,min=6"`
+	FirstName string  `json:"first_name"`
+	LastName  string  `json:"last_name"`
+	CollegeID *string `json:"college_id"`
+	RoleID    int64   `json:"role_id"`
 }
 
 type UserUpdate struct {
@@ -41,7 +41,7 @@ type UserResponse struct {
 	Email               string    `json:"email"`
 	FirstName           string    `json:"first_name"`
 	LastName            string    `json:"last_name"`
-	CollegeID           *int64    `json:"college_id,omitempty"`
+	CollegeID           *string   `json:"college_id,omitempty"`
 	IsActive            bool      `json:"is_active"`
 	ForcePasswordChange bool      `json:"force_password_change"`
 	CreatedAt           time.Time `json:"created_at"`

@@ -5,6 +5,7 @@ import (
 	"backend/models"
 	"backend/services/erp"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -62,9 +63,14 @@ func (h *RecordHandler) PublicCreateRecord(c *gin.Context) {
 
 func (h *RecordHandler) GetRecord(c *gin.Context) {
 	recordID := c.Param("recordId")
-	record, err := h.recordService.GetRecord(recordID)
+	userID := middleware.GetUserID(c)
+	record, err := h.recordService.GetRecord(recordID, userID)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Record not found"})
+		if strings.Contains(err.Error(), "forbidden") {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Record not found"})
+		}
 		return
 	}
 
@@ -74,18 +80,23 @@ func (h *RecordHandler) GetRecord(c *gin.Context) {
 func (h *RecordHandler) GetRecordsByModule(c *gin.Context) {
 	moduleKey := c.Param("moduleKey")
 	search := c.Query("search")
+	userID := middleware.GetUserID(c)
 
 	var records []models.Record
 	var err error
 
 	if search != "" {
-		records, err = h.recordService.SearchRecords(moduleKey, search)
+		records, err = h.recordService.SearchRecords(moduleKey, search, userID)
 	} else {
-		records, err = h.recordService.GetRecordsByModule(moduleKey)
+		records, err = h.recordService.GetRecordsByModule(moduleKey, userID)
 	}
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if strings.Contains(err.Error(), "forbidden") {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -94,15 +105,20 @@ func (h *RecordHandler) GetRecordsByModule(c *gin.Context) {
 
 func (h *RecordHandler) UpdateRecord(c *gin.Context) {
 	recordID := c.Param("recordId")
+	userID := middleware.GetUserID(c)
 	var req models.RecordUpdate
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	record, err := h.recordService.UpdateRecord(recordID, req)
+	record, err := h.recordService.UpdateRecord(recordID, req, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if strings.Contains(err.Error(), "forbidden") {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 
@@ -111,9 +127,14 @@ func (h *RecordHandler) UpdateRecord(c *gin.Context) {
 
 func (h *RecordHandler) DeleteRecord(c *gin.Context) {
 	recordID := c.Param("recordId")
-	err := h.recordService.DeleteRecord(recordID)
+	userID := middleware.GetUserID(c)
+	err := h.recordService.DeleteRecord(recordID, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		if strings.Contains(err.Error(), "forbidden") {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
 		return
 	}
 

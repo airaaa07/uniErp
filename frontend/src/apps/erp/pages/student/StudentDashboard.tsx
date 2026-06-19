@@ -80,6 +80,18 @@ const StudentDashboard: React.FC = () => {
   const [rzpTxRef, setRzpTxRef] = useState("");
   const [submittingReg, setSubmittingReg] = useState(false);
 
+  // Tuition Fee Payment States
+  const [tuitionPaymentMode, setTuitionPaymentMode] = useState<"online" | "offline">("online");
+  const [tuitionOfflineTxRef, setTuitionOfflineTxRef] = useState("");
+  const [tuitionRzpTxRef, setTuitionRzpTxRef] = useState("");
+  const [submittingTuition, setSubmittingTuition] = useState(false);
+
+  // Fee calculation states
+  const [tuitionFeeAmount, setTuitionFeeAmount] = useState(0);
+  const [tuitionSecurityAmount, setTuitionSecurityAmount] = useState(0);
+  const [tuitionDiscount, setTuitionDiscount] = useState(0);
+  const [tuitionFinalAmount, setTuitionFinalAmount] = useState(0);
+
   useEffect(() => {
     if (user) {
       fetchStudentData();
@@ -137,6 +149,36 @@ const StudentDashboard: React.FC = () => {
           setClass12Percent(matchReg.data?.reg_class_12_percent ?? activeInq.data?.class_12_percent ?? "");
           setEntranceExam(matchReg.data?.entrance_exam_name ?? "");
           setEntranceRank(matchReg.data?.entrance_rank_score ?? "");
+
+          // Calculate Tuition Fees from fee_master
+          try {
+            const feeRes = await erpRecordAPI.getRecordsByModule("fee_master");
+            const fees = feeRes.data || [];
+            const matchingFee = fees.find(
+              (f) =>
+                String(f.data?.institute_id) === String(matchReg.data?.reg_institute_id) &&
+                String(f.data?.stream_id) === String(matchReg.data?.reg_stream_id)
+            );
+            if (matchingFee && matchingFee.data) {
+              const partFee = parseFloat(matchingFee.data.part_fee || "0");
+              const securityFee = parseFloat(matchingFee.data.part_security || "0");
+              const discountPercent = parseFloat(matchReg.data?.approved_discount || "0");
+              const discountAmt = partFee * (discountPercent / 100);
+              const finalAmt = (partFee - discountAmt) + securityFee;
+
+              setTuitionFeeAmount(partFee);
+              setTuitionSecurityAmount(securityFee);
+              setTuitionDiscount(discountAmt);
+              setTuitionFinalAmount(finalAmt);
+            } else {
+              setTuitionFeeAmount(45000);
+              setTuitionSecurityAmount(5000);
+              setTuitionDiscount(0);
+              setTuitionFinalAmount(50000);
+            }
+          } catch (feeErr) {
+            console.warn("Failed to load matching fee_master:", feeErr);
+          }
         }
       }
 
@@ -289,6 +331,77 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  const handleOpenTuitionRazorpay = async () => {
+    const res = await loadRazorpayScript();
+    if (!res) {
+      alert("Failed to load Razorpay SDK. Please check your internet connection.");
+      return;
+    }
+
+    const options = {
+      key: "rzp_test_RvORW1HCWwBwoy",
+      amount: tuitionFinalAmount * 100, // in paise
+      currency: "INR",
+      name: "University ERP",
+      description: "Admission Course Tuition Fee",
+      handler: function (response: any) {
+        const paymentId = response.razorpay_payment_id;
+        setTuitionRzpTxRef(paymentId);
+        toast.success("Tuition Payment successful via Razorpay!");
+      },
+      prefill: {
+        name: `${user?.first_name || ""} ${user?.last_name || ""}`.trim() || "Student",
+        email: user?.email || "",
+      },
+      theme: {
+        color: "#650C08",
+      },
+    };
+
+    const paymentObject = new (window as any).Razorpay(options);
+    paymentObject.open();
+  };
+
+
+  const handleSubmitTuitionPayment = async () => {
+    if (!activeReg || !activeInquiry) return;
+    const ref = tuitionPaymentMode === "online" ? tuitionRzpTxRef : tuitionOfflineTxRef;
+    if (!ref) {
+      alert("Payment reference is required!");
+      return;
+    }
+
+    try {
+      setSubmittingTuition(true);
+      // Update registration record with tuition fee details
+      const updatedRegData = {
+        ...activeReg.data,
+        pmt_tx_ref: ref,
+        amount_paid: tuitionFinalAmount,
+        approval_status: "Admission Fee Paid",
+      };
+
+      await erpRecordAPI.updateRecord(activeReg.record_id, { data: updatedRegData });
+
+      // Update Inquiry status to Admission Fee Paid
+      const updatedInquiry = {
+        ...activeInquiry.data,
+        inquiry_status: "Admission Fee Paid",
+      };
+      await erpRecordAPI.updateRecord(activeInquiry.record_id, { data: updatedInquiry });
+
+      setTuitionRzpTxRef("");
+      setTuitionOfflineTxRef("");
+      toast.success("Tuition fee payment submitted successfully!");
+      await fetchStudentData();
+    } catch (err) {
+      console.error("Failed to submit tuition fee payment:", err);
+      alert("An error occurred. Please try again.");
+    } finally {
+      setSubmittingTuition(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Enrolled":
@@ -438,12 +551,12 @@ const StudentDashboard: React.FC = () => {
                 {/* Admission Timeline Steps */}
                 <Box sx={{ position: "relative", pl: 4, borderLeft: "2px solid #e2e8f0", ml: 2, py: 1 }}>
                   {[
-                    { title: "Inquiry Submitted", desc: "Your dynamic inquiry form was registered.", step: "Open", active: true },
-                    { title: "Counsellor Assigned", desc: "A counselor has been allocated to review your file.", step: "Assigned", active: ["Assigned", "Payment Pending", "Submitted", "Fee Paid", "Approved", "Enrolled"].includes(activeInquiry.data.inquiry_status) },
-                    { title: "Counseling Completed", desc: "Recommended college and stream allocated.", step: "Payment Pending", active: ["Payment Pending", "Submitted", "Fee Paid", "Approved", "Enrolled"].includes(activeInquiry.data.inquiry_status) },
-                    { title: "Registration Payment", desc: "Pay fee (online/offline) and upload marksheets/photographs.", step: "Submitted", active: ["Submitted", "Fee Paid", "Approved", "Enrolled"].includes(activeInquiry.data.inquiry_status) },
-                    { title: "Credentials Verified", desc: "Credentials and payment details verified by official desk.", step: "Approved", active: ["Approved", "Enrolled"].includes(activeInquiry.data.inquiry_status) },
-                    { title: "Enrolled & Matriculated", desc: "Official enrollment number issued.", step: "Enrolled", active: activeInquiry.data.inquiry_status === "Enrolled" }
+                    { title: "Inquiry Submitted", desc: "Your dynamic inquiry form was registered.", active: true },
+                    { title: "Counsellor Recommended", desc: "Counseling completed and college program recommended.", active: ["Payment Pending", "Submitted", "Fee Paid", "Approved", "Admission Fee Paid", "Admission Fee Verified", "Enrolled"].includes(activeInquiry.data?.inquiry_status) },
+                    { title: "Registration Fee Verified", desc: "Application fee and qualifying documents verified by Finance.", active: ["Fee Paid", "Approved", "Admission Fee Paid", "Admission Fee Verified", "Enrolled"].includes(activeInquiry.data?.inquiry_status) },
+                    { title: "Admission Seat Approved", desc: "Academic Officer evaluated credentials and approved program seat.", active: ["Approved", "Admission Fee Paid", "Admission Fee Verified", "Enrolled"].includes(activeInquiry.data?.inquiry_status) },
+                    { title: "Course Tuition Fee Paid", desc: "Admission course fee payment verified by Finance desk.", active: ["Admission Fee Verified", "Enrolled"].includes(activeInquiry.data?.inquiry_status) },
+                    { title: "Physical Documents Verified & Enrolled", desc: "Provisional offer validated physically; Enrollment number issued.", active: activeInquiry.data?.inquiry_status === "Enrolled" }
                   ].map((s, idx) => (
                     <Box key={idx} sx={{ mb: 4, position: "relative" }}>
                       {/* Timeline dot */}
@@ -471,7 +584,7 @@ const StudentDashboard: React.FC = () => {
                   ))}
                 </Box>
 
-                {/* self-service payment form */}
+                {/* 1. Registration Fee Payment Form */}
                 {activeInquiry.data?.inquiry_status === "Payment Pending" && activeReg && (
                   <Box sx={{ mt: 4, p: 3, border: "1px solid rgba(101,12,8,0.1)", borderRadius: 3, bgcolor: "rgba(101,12,8,0.01)" }}>
                     <Typography variant="h6" sx={{ fontWeight: 800, color: "#650C08", mb: 2 }}>
@@ -649,6 +762,232 @@ const StudentDashboard: React.FC = () => {
                         </Button>
                       </Grid>
                     </Grid>
+                  </Box>
+                )}
+
+                {/* 2. Admission / Course Tuition Fee Payment Form */}
+                {activeInquiry.data?.inquiry_status === "Approved" && activeReg && (
+                  <Box sx={{ mt: 4, p: 3, border: "1px solid rgba(16, 185, 129, 0.2)", borderRadius: 3, bgcolor: "rgba(16, 185, 129, 0.01)" }}>
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: "#065f46", mb: 2 }}>
+                      🎉 Congratulations! Pay Your Course Admission Fee
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                      Your academic record has been approved by our Admission Officers. To secure your program seat at <strong>{institutesMap[activeReg.data?.reg_institute_id] || activeReg.data?.reg_institute_id}</strong>, please pay the Course Admission / Tuition Fee.
+                    </Typography>
+
+                    {/* Fee Calculation Breakdown */}
+                    <Paper variant="outlined" sx={{ p: 3, mb: 3, borderRadius: 2.5, bgcolor: "#fafafa" }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: "#1e293b" }}>Admission Fee Breakdown</Typography>
+                      <Grid container spacing={1.5}>
+                        <Grid size={{ xs: 8 }}>
+                          <Typography variant="body2" color="text.secondary">Base Tuition Fee (Semester 1):</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 4 }} sx={{ textAlign: "right" }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{tuitionFeeAmount.toLocaleString()}</Typography>
+                        </Grid>
+                        {tuitionDiscount > 0 && (
+                          <>
+                            <Grid size={{ xs: 8 }}>
+                              <Typography variant="body2" color="success.main">Scholarship Discount ({activeReg.data?.approved_discount}%):</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 4 }} sx={{ textAlign: "right" }}>
+                              <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>- ₹{tuitionDiscount.toLocaleString()}</Typography>
+                            </Grid>
+                          </>
+                        )}
+                        <Grid size={{ xs: 8 }}>
+                          <Typography variant="body2" color="text.secondary">One-time Security Deposit (Refundable):</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 4 }} sx={{ textAlign: "right" }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>+ ₹{tuitionSecurityAmount.toLocaleString()}</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 12 }}><Divider sx={{ my: 1 }} /></Grid>
+                        <Grid size={{ xs: 8 }}>
+                          <Typography variant="body1" sx={{ fontWeight: 700, color: "#650C08" }}>Total Fee Payable:</Typography>
+                        </Grid>
+                        <Grid size={{ xs: 4 }} sx={{ textAlign: "right" }}>
+                          <Typography variant="body1" sx={{ fontWeight: 800, color: "#650C08" }}>₹{tuitionFinalAmount.toLocaleString()}</Typography>
+                        </Grid>
+                      </Grid>
+                    </Paper>
+
+                    <Grid container spacing={3}>
+                      {/* Step 1: Tuition Payment Options */}
+                      <Grid size={{ xs: 12 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#0f172a", mb: 1 }}>
+                          Choose Tuition Fee Payment Option
+                        </Typography>
+                        
+                        <FormControl component="fieldset">
+                          <RadioGroup row value={tuitionPaymentMode} onChange={(e) => setTuitionPaymentMode(e.target.value as any)}>
+                            <FormControlLabel value="online" control={<Radio sx={{ color: "#650C08", "&.Mui-checked": { color: "#650C08" } }} />} label="Online via Razorpay" />
+                            <FormControlLabel value="offline" control={<Radio sx={{ color: "#650C08", "&.Mui-checked": { color: "#650C08" } }} />} label="Offline Bank Deposit" />
+                          </RadioGroup>
+                        </FormControl>
+
+                        {tuitionPaymentMode === "online" ? (
+                          <Box sx={{ mt: 2, p: 2.5, border: "1px dashed rgba(0,0,0,0.15)", borderRadius: 2, bgcolor: "rgba(0,0,0,0.01)" }}>
+                            <Typography variant="body2" sx={{ mb: 2 }}>
+                              Pay tuition fee securely online using UPI, Cards, Netbanking, or EMI options.
+                            </Typography>
+                            {tuitionRzpTxRef ? (
+                              <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
+                                Online Tuition Fee Paid! Transaction ID: <strong>{tuitionRzpTxRef}</strong>
+                              </Alert>
+                            ) : (
+                              <Button variant="contained" startIcon={<CreditCardIcon />} onClick={handleOpenTuitionRazorpay} sx={{ bgcolor: "#650C08", "&:hover": { bgcolor: "#7a1d16" }, textTransform: "none", borderRadius: 2 }}>
+                                Pay Tuition online via Razorpay
+                              </Button>
+                            )}
+                          </Box>
+                        ) : (
+                          <Box sx={{ mt: 2, p: 2.5, border: "1px dashed rgba(0,0,0,0.15)", borderRadius: 2, bgcolor: "rgba(0,0,0,0.01)" }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#0f172a", mb: 1, display: "flex", alignItems: "center", gap: 1 }}>
+                              <AccountBalanceIcon sx={{ color: "#650C08" }} /> Tuition Bank Deposit Instructions:
+                            </Typography>
+                            <Typography variant="body2" sx={{ mb: 2, whiteSpace: "pre-line" }}>
+                              <strong>Bank Name:</strong> State Bank of India
+                              <strong>Account Number:</strong> 998877665544
+                              <strong>IFSC Code:</strong> SBIN0004567
+                              <strong>Branch:</strong> University Campus Branch
+                              Please deposit ₹{tuitionFinalAmount} and enter the transaction reference / UTR number below.
+                            </Typography>
+                            <TextField
+                              fullWidth
+                              label="UTR Number / Receipt Reference"
+                              value={tuitionOfflineTxRef}
+                              onChange={(e) => setTuitionOfflineTxRef(e.target.value)}
+                              placeholder="e.g. UTRTUIT998877"
+                              required
+                            />
+                          </Box>
+                        )}
+                      </Grid>
+
+                      {/* Submit Tuition Fee */}
+                      <Grid size={{ xs: 12 }} sx={{ mt: 2 }}>
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={handleSubmitTuitionPayment}
+                          disabled={submittingTuition || (!tuitionRzpTxRef && !tuitionOfflineTxRef)}
+                          sx={{
+                            bgcolor: "#10b981",
+                            "&:hover": { bgcolor: "#059669" },
+                            borderRadius: 2.5,
+                            py: 1.5,
+                            fontWeight: 700,
+                            textTransform: "none"
+                          }}
+                        >
+                          {submittingTuition ? "Submitting Tuition Payment..." : "Confirm & Submit Tuition Payment"}
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                )}
+
+                {/* 3. Tuition Fee Verification Pending Banner */}
+                {activeInquiry.data?.inquiry_status === "Admission Fee Paid" && (
+                  <Box sx={{ mt: 4 }}>
+                    <Alert severity="info" sx={{ borderRadius: 3, p: 2 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Tuition Fee Verification Pending</Typography>
+                      <Typography variant="body2">
+                        Your course admission fee payment (Reference ID: <strong>{activeReg?.data?.pmt_tx_ref}</strong>) has been submitted. The Finance department is currently verifying your bank transfer. Once approved, your Provisional Offer Letter will be generated.
+                      </Typography>
+                    </Alert>
+                  </Box>
+                )}
+
+                {/* 4. Provisional Offer Letter & Physical Verification Instructions */}
+                {activeInquiry.data?.inquiry_status === "Admission Fee Verified" && activeReg && (
+                  <Box sx={{ mt: 4 }}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 4,
+                        border: "2px solid #650C08",
+                        borderRadius: 4,
+                        bgcolor: "#fff",
+                        boxShadow: "0 10px 30px rgba(101,12,8,0.06)",
+                        position: "relative"
+                      }}
+                    >
+                      {/* Letter Header */}
+                      <Box sx={{ display: "flex", justifyContent: "space-between", borderBottom: "2px solid #650C08", pb: 2.5, mb: 3 }}>
+                        <Box>
+                          <Typography variant="h5" sx={{ fontWeight: 900, color: "#650C08", letterSpacing: "-0.02em" }}>
+                            UNIVERSITY ERP GROUP
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                            Office of the Admissions Registrar · Jhunjhunu, Rajasthan
+                          </Typography>
+                        </Box>
+                        <Box sx={{ textAlign: "right" }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>PROVISIONAL OFFER LETTER</Typography>
+                          <Typography variant="caption" color="text.secondary">Date: {new Date().toLocaleDateString()}</Typography>
+                        </Box>
+                      </Box>
+
+                      {/* Letter Body */}
+                      <Box sx={{ mb: 4 }}>
+                        <Typography variant="body1" sx={{ mb: 2 }}>
+                          Dear <strong>{user?.first_name} {user?.last_name}</strong>,
+                        </Typography>
+                        <Typography variant="body2" sx={{ mb: 3, color: "text.primary", lineHeight: 1.6 }}>
+                          We are pleased to inform you that your provisional admission to the university is confirmed. Your tuition fee of <strong>₹{activeReg.data?.amount_paid || tuitionFinalAmount}</strong> has been successfully verified (Transaction Ref: <code>{activeReg.data?.pmt_tx_ref}</code>).
+                        </Typography>
+
+                        <Paper variant="outlined" sx={{ p: 2.5, mb: 4, borderRadius: 2, bgcolor: "#fafafa", border: "1px dashed #650C08" }}>
+                          <Grid container spacing={1.5}>
+                            <Grid size={{ xs: 5 }}>
+                              <Typography variant="caption" color="text.secondary">REGISTRATION REF:</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 7 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>{activeReg.record_id.slice(0, 12).toUpperCase()}</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 5 }}>
+                              <Typography variant="caption" color="text.secondary">ALLOCATED COLLEGE:</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 7 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>{institutesMap[activeReg.data?.reg_institute_id] || "Main Campus"}</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 5 }}>
+                              <Typography variant="caption" color="text.secondary">ALLOCATED PROGRAM:</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 7 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>{streamsMap[activeReg.data?.reg_stream_id] || "Allocated stream"}</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 5 }}>
+                              <Typography variant="caption" color="text.secondary">SCHOLARSHIP STATUS:</Typography>
+                            </Grid>
+                            <Grid size={{ xs: 7 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: "success.main" }}>{activeReg.data?.approved_discount || 0}% Scholarship Awarded</Typography>
+                            </Grid>
+                          </Grid>
+                        </Paper>
+
+                        <Divider sx={{ my: 3 }} />
+
+                        {/* Physical Reporting Checklist */}
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: "#650C08", mb: 1.5 }}>
+                          📍 NEXT STEPS: Physical Reporting & Document Submission
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
+                          Please print this letter and report physically to the admissions desk on campus. You are required to submit the following **Xerox copies** for physical verification:
+                        </Typography>
+                        <ul style={{ paddingLeft: "1.2rem", margin: "0 0 1rem 0", color: "#475569", fontSize: "0.85rem", lineHeight: "1.7" }}>
+                          <li>One copy of this Provisional Offer Letter.</li>
+                          <li>Physical Xerox copies of your Class 10th and 12th Marksheets.</li>
+                          <li>Two passport-sized color photographs.</li>
+                          <li>Verification proof of the tuition fee payment transaction.</li>
+                          <li>Physical Aadhar Card / Address Proof document.</li>
+                        </ul>
+                        <Typography variant="caption" sx={{ display: "block", color: "error.main", mt: 2, fontWeight: 700 }}>
+                          * Note: Please bring your original documents for verification. The Registrar will match them, collect the Xerox copies, and issue your official permanent Enrollment ID.
+                        </Typography>
+                      </Box>
+                    </Paper>
                   </Box>
                 )}
               </CardContent>

@@ -106,6 +106,10 @@ export const roleAPI = {
   getAll: () => api.get<Role[]>('/roles'),
 };
 
+export const collegeAPI = {
+  getAll: () => erpRecordAPI.getRecordsByModule('institute_master'),
+};
+
 
 export const publicAPI = {
   getFormLayout: (moduleKey: string) => axios.get<FormLayout>(`${API_BASE_URL}/erp/public/modules/${moduleKey}/layout`),

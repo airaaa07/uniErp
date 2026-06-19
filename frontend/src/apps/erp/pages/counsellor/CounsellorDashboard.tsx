@@ -48,7 +48,7 @@ const CounsellorDashboard: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [coursesMap, setCoursesMap] = useState<Record<string, string>>({});
-  
+
   // Counselor selection options
   const [institutes, setInstitutes] = useState<{ value: string; label: string }[]>([]);
   const [streams, setStreams] = useState<{ value: string; label: string }[]>([]);
@@ -84,7 +84,7 @@ const CounsellorDashboard: React.FC = () => {
       // Fetch Courses catalog for translation
       const modulesRes = await erpRecordAPI.getAllModules();
       const modulesList = modulesRes.data || [];
-      
+
       const courseOpts = await fetchReferenceOptions("course_id", modulesList, true);
       if (courseOpts) {
         const cMap: Record<string, string> = {};
@@ -149,7 +149,7 @@ const CounsellorDashboard: React.FC = () => {
     if (!selectedStudent || !selectedInstId || !selectedStreamId) return;
     try {
       setSubmitting(true);
-      
+
       // Look up registration fee
       let feeAmount = 1500; // standard default
       try {
@@ -191,6 +191,7 @@ const CounsellorDashboard: React.FC = () => {
       const updatedInquiry = {
         ...selectedStudent.data,
         inquiry_status: "Payment Pending",
+        institute_id: selectedInstId, // Save the recommended college ID to inquiry too
       };
       await erpRecordAPI.updateRecord(selectedStudent.record_id, { data: updatedInquiry });
 
